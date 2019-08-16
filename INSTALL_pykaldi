@@ -1,0 +1,22 @@
+The easist way to install it is with a virtual environment
+
+mkdir ~/projects/
+cd ~/projects/
+git clone https://github.com/pykaldi/pykaldi
+git clone https://github.com/uhh-lt/kaldi-model-server
+
+cd kaldi-model-server
+
+virtualenv -p python3 .
+source ./bin/activate
+
+pip3 install numpy pyparsing
+
+Install CLIF and KALDI dependencies
+ ~/projects/pykaldi/tools/install_clif.sh ~/projects/kaldi-model-server/bin/python3 && ~/projects/pykaldi/tools/install_kaldi.sh ~/projects/kaldi-model-server/bin/python3
+
+Now install pykaldi
+~/projects/pykaldi$ python3 setup.py install
+
+You can test the install with:
+~/projects/pykaldi$ python3 setup.py test
