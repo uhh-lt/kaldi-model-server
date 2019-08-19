@@ -34,16 +34,59 @@ from kaldi.online2 import (OnlineEndpointConfig,
                            OnlineSilenceWeighting)
 from kaldi.util.options import ParseOptions
 from kaldi.util.table import SequentialWaveReader
+from kaldi.lat.sausages import MinimumBayesRisk
+
+from kaldi.fstext import utils as fst_utils
 
 import yaml
 import os
 import pyaudio
+
+import json
+import redis
+from timer import Timer
 
 chunk_size = 1440
 chunk_size = 1200
 models_path = 'models/'
 online_config = models_path + "kaldi_tuda_de_nnet3_chain2.online.conf"
 yaml_config = "models/kaldi_tuda_de_nnet3_chain2.yaml"
+
+red = redis.StrictRedis()
+
+#Do most of the message passing with redis, now standard version
+class ASRRedisClient():
+
+    def __init__(self, channel='asr'):
+        self.channel = channel
+        self.timer_started = False
+        self.timer = Timer()
+
+    def checkTimer(self):
+        if not self.timer_started:
+            self.timer.start()
+            self.timer_started = True
+
+    def resetTimer(self):
+        self.timer_started = False
+        self.timer.start()
+
+    def partialUtterance(self, utterance, key='none', speaker='Speaker'):
+        self.checkTimer()
+        data = {'handle':'partialUtterance','utterance':utterance, 'key':key, 'speaker':speaker, 'time': float(self.timer.current_secs())}
+        red.publish(self.channel, json.dumps(data))
+
+    def completeUtterance(self, utterance, confidences, key='none', speaker='Speaker'):
+        self.checkTimer()
+        data = {'handle':'completeUtterance','utterance':utterance,'confidences':confidences,'key':key, 'speaker':speaker, 'time': float(self.timer.current_secs())}
+        red.publish(self.channel, json.dumps(data))
+
+    def reset(self):
+        data = {'handle':'reset'}
+        red.publish(self.channel, json.dumps(data))
+        self.resetTimer()
+        r = requests.post(self.server_url+'reset', data=json.dumps(data), headers=self.request_header)
+        return r.status_code
 
 def load_model(config_file):
     # Read YAML file
@@ -128,7 +171,7 @@ def decode_chunked_partial(scp):
         out = asr.get_output()
         print(key + "-final", out["text"], flush=True)
 
-def decode_chunked_partial_endpointing(scp):
+def decode_chunked_partial_endpointing(scp, compute_confidences=True,asr_client=None):
     # Decode (chunked + partial output + endpointing
     #         + ivector adaptation + silence weighting)
     adaptation_state = OnlineIvectorExtractorAdaptationState.from_info(
@@ -162,7 +205,12 @@ def decode_chunked_partial_endpointing(scp):
                 if asr.endpoint_detected():
                     asr.finalize_decoding()
                     out = asr.get_output()
+                    mbr = MinimumBayesRisk(out["lattice"])
+                    confd = mbr.get_one_best_confidences()
+                    print(confd)
                     print(key + "-utt%d-final" % utt, out["text"], flush=True)
+                    if asr_client is not None:
+                        asr_client.completeUtterance(utterance=out["text"],key=key +"-utt%d-part%d" % (utt, part),confidences=confd)
                     offset += int(num_frames_decoded
                                   * decodable_opts.frame_subsampling_factor
                                   * feat_pipeline.frame_shift_in_seconds()
@@ -185,10 +233,18 @@ def decode_chunked_partial_endpointing(scp):
                     out = asr.get_partial_output()
                     print(key + "-utt%d-part%d" % (utt, part),
                           out["text"], flush=True)
+                    if asr_client is not None:
+                        asr_client.partialUtterance(utterance=out["text"],key=key + "-utt%d-part%d" % (utt, part))
                     part += 1
         asr.finalize_decoding()
         out = asr.get_output()
+        mbr = MinimumBayesRisk(out["lattice"])
+        confd = mbr.get_one_best_confidences()
+        print(out)
         print(key + "-utt%d-final" % utt, out["text"], flush=True)
+        if asr_client is not None:
+            asr_client.completeUtterance(utterance=out["text"],key=key +"-utt%d-part%d" % (utt, part),confidences=confd)
+
         feat_pipeline.get_adaptation_state(adaptation_state)
 
 def print_devices(paudio):
@@ -203,7 +259,7 @@ def print_devices(paudio):
             print("Output Device id ", i, " - ", paudio.get_device_info_by_host_api_device_index(0,i).get('name'))
 
 
-def decode_chunked_partial_endpointing_mic(paudio,input_microphone_id,samp_freq=16000):
+def decode_chunked_partial_endpointing_mic(paudio,input_microphone_id,samp_freq=16000, compute_confidences=True):
     stream = paudio.open(format=pyaudio.paInt16, channels=1, rate=samp_freq, input=True, frames_per_buffer=1024, input_device_index = input_microphone_id)  
     adaptation_state = OnlineIvectorExtractorAdaptationState.from_info(
         feat_info.ivector_extractor_info)
@@ -258,6 +314,9 @@ def decode_chunked_partial_endpointing_mic(paudio,input_microphone_id,samp_freq=
             elif num_frames_decoded > prev_num_frames_decoded:
                 prev_num_frames_decoded = num_frames_decoded
                 out = asr.get_partial_output()
+                mbr = MinimumBayesRisk(asr.get_lattice())
+                confd = mbr.get_one_best_confidences()
+                print(confd)
                 print(key + "-utt%d-part%d" % (utt, part),
                       out["text"], flush=True)
                 part += 1
@@ -267,8 +326,9 @@ def decode_chunked_partial_endpointing_mic(paudio,input_microphone_id,samp_freq=
     feat_pipeline.get_adaptation_state(adaptation_state)
     
 #decode_chunked_partial("scp:wav.scp")
-#decode_chunked_partial_endpointing("scp:wav.scp")
+asr_client = ASRRedisClient(channel='asr')
+decode_chunked_partial_endpointing("scp:wav.scp", asr_client=asr_client)
 
-paudio = pyaudio.PyAudio()
-print_devices(paudio)
-decode_chunked_partial_endpointing_mic(paudio,input_microphone_id=1)
+#paudio = pyaudio.PyAudio()
+#print_devices(paudio)
+#decode_chunked_partial_endpointing_mic(paudio,input_microphone_id=1)
