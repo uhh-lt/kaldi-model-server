@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="Benjamin Milde (Universitaet Hamburg)">
+
+    <title>ASR</title>
+
+    <!-- Bootstrap Core CSS -->
+    <link href="css/bootstrap.css" rel="stylesheet">
+
+    <!-- Bootstrap Theme CSS -->
+    <link href="css/bootstrap-theme.min.css" rel="stylesheet">
+        
+    <!-- Bootstrap XL CSS for large displays (HD screens) -->
+    <link href="css/bootstrapXL.css" rel="stylesheet">
+
+    <!-- Bootstrap Switch CSS -->
+    <link href="css/bootstrap-switch.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Slider CSS -->
+    <link href="css/bootstrap-slider.css" rel="stylesheet">
+
+    <!-- Custom CSS -->
+    <link href="css/asr.css" rel="stylesheet">
+
+    <!-- HTML5 Shim and Respond.js IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+        <script src="https://oss.maxcdn.com/libs/html5shiv/3.7.0/html5shiv.js"></script>
+        <script src="https://oss.maxcdn.com/libs/respond.js/1.4.2/respond.min.js"></script>
+    <![endif]-->
+
+</head>
+
+<!-- Navigation -->
+<nav class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+    <div class="container">
+        <!-- Brand and toggle get grouped for better mobile display -->
+        <div class="navbar-header">
+            <a class="navbar-brand" href="#">ASR</a>
+        </div>
+        <!-- Collect the nav links, forms, and other content for toggling -->
+        <div class="collapse navbar-collapse">
+            <ul class="nav navbar-nav">
+               <!-- Button trigger modal -->
+               <li class="nav-item">
+                <a data-toggle="modal" data-target="#settings-modal">
+                    <span class="glyphicon glyphicon-cog"></span> 
+                </a>
+                </li>
+            </ul>
+       </div>
+        <!-- /.navbar-collapse -->
+    </div>
+    <!-- /.container -->
+</nav>
+
+<!-- Modals -->
+<div class="modal fade" id="settings-modal" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+              <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+              <h4 class="modal-title lang_en">Settings</h4>
+                <h4 class="modal-title lang_de">Einstellungen</h4>
+          </div>
+          <div class="modal-body">
+      <div class="form-group">
+          <label for="speechInputSetting" class="lang_de">Spracheingabe anzeigen?</label>
+          <label for="speechInputSetting" class="lang_en">Display speech input?</label>
+          <select name="speechInputSetting" id="speechInputSetting">
+              <option value="On">On</option>
+              <option value="Off">Off</option>
+          </select>
+          <br/>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-default lang_en" onclick="resetConversation()">Reset Conversation</button>
+            <button type="button" class="btn btn-default lang_en" data-dismiss="modal">Close</button>
+            <button type="button" class="btn btn-default lang_de" onclick="resetConversation()">Konversation zurücksetzen</button>
+            <button type="button" class="btn btn-default lang_de" data-dismiss="modal">Schließen</button>
+          </div>
+        </div>
+    </div>
+</div>
+
+<!-- Page Content -->
+<div class="container">
+
+<div id="bottom-bar" class="row">
+    <div id="speech-input" class="col-sm-9">
+        <h2 class="lang_de">Spracheingabe</h2>
+        <h2 class="lang_en">Speech Input</h2>
+        <div id="chat-area">
+            <p><span >Computer: </span><i>Hi! I'm listening</i></p>
+        </div>
+    </div>
+</div>
+
+<!-- jQuery -->
+<script src="js/jquery-3.4.1.min.js"></script>
+
+<!-- Bootstrap Core JavaScript -->
+<script src="js/bootstrap.js"></script>
+
+<!-- Bootstrap Switch JavaScript -->
+<script src="js/bootstrap-switch.min.js"></script>
+
+<!-- Bootstrap Slider JavaScript -->
+<script src="js/bootstrap-slider.js"></script>
+
+<!-- dot template engine -->
+<script src="js/doT.js"></script>
+
+<!-- Ambient Search JavaScript -->
+<script src="js/asr.js"></script>
+
+<!-- Polyfill server side events, JavaScript -->
+<script src="js/EventSource.js"></script>
+
+</body>
+
+</html> 

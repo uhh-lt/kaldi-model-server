@@ -1,0 +1,97 @@
+/*!
+ * Start Bootstrap - Heroic Features HTML Template (http://startbootstrap.com)
+ * Code licensed under the Apache License v2.0.
+ * For details, see http://www.apache.org/licenses/LICENSE-2.0.
+ */
+
+body {
+/*    padding-top: 70px; /* Required padding for .navbar-fixed-top. Remove if using .navbar-static-top. Change if height of navigation changes. */
+    font-size: 14px;
+}
+
+/*Fix for jumping navbar when modals get active: https://github.com/twbs/bootstrap/issues/14040*/
+body.modal-open {
+    overflow-y: auto !important;
+    padding-right: 0 !important;
+}
+
+#chat-area {
+    height: 130px;
+    overflow: auto;
+    border: 1px solid #ddd; 
+    padding: 10px;
+    background: #fff; 
+    border-radius: 6px;
+    margin: 0;
+    margin-bottom: 20px;
+    /*line-height: 2em;*/
+ }
+  
+#chat-area span  { 
+    color: white; 
+    background: #333; 
+    padding: 4px 8px; 
+    border-radius: 0.5em; 
+    margin: 0 5px 0 0; 
+}
+
+h1, .h1, h2, .h2, h3, .h3 {
+    margin-top: 4px;
+    margin-bottom: 8px;
+}
+
+.btn-round-icon {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.btn-black {
+  color: white;
+  background-color: #333;
+  border-color: #333;
+}
+
+.close-darker {
+    color: #000;
+    text-shadow: 0 1px 0 #fff;
+    filter: alpha(opacity=70);
+    opacity: .7;
+}
+
+.navbar-form label {
+  margin-top: 5px;
+  margin-right: 10px;
+  margin-left: 25px;
+  color: #aaa;
+  font-weight: normal
+}
+
+.navbar-form .slider.slider-horizontal .slider-handle {
+  background: #aaa;
+}
+
+.navbar-form .slider.slider-horizontal .slider-selection {
+  background: none;
+}
+
+.navbar-form .slider.slider-horizontal .slider-tick {
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  margin-top: 0px;
+}
+
+.navbar-form .slider.slider-horizontal .slider-tick-label {
+  color: #aaa;
+}
+
+@media (max-width: 992px)  {
+  .navbar-form .slider.slider-horizontal {
+    width: 100px;
+  }
+}
+
+.lang_de {
+  display:none;
+}
