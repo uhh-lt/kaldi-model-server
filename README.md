@@ -33,7 +33,7 @@ The easist way to install PyKaldi and kaldi-model-server is in a virtual environ
     virtualenv -p python3 .
     source ./bin/activate
 
-Install ubuntu dependencies for PyKaldi and kaldi-model-server:
+Install Ubuntu dependencies for PyKaldi and kaldi-model-server:
 
     sudo apt-get install portaudio19-dev autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev
 
