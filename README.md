@@ -4,9 +4,9 @@ Kaldi-model-server is a simple Kaldi model server for online decoding with TDNN 
 
 Because redis supports a [wide range of different programming languages](https://redis.io/clients), it can easily be used to interact with decoded speech output in realtime with your favourite programming language.
 
-For demonstration purposes we added an simple demo example application that uses the Python based event server written in Flask (event_server.py) to display the recognized words in a simple HTML5 app running in a browser window:
+For demonstration purposes we added an simple demo example application that uses the Python based event server written in [Flask](https://palletsprojects.com/p/flask/) (event_server.py) to display the recognized words in a simple HTML5 app running in a browser window:
 
-example/ An example HTML5 application that visualizes
+example/ An example HTML5 application that visualizes 
 
 To start the demo run 
 
