@@ -10,11 +10,11 @@ example/ An example HTML5 application that visualizes
 
 To start the demo run 
 
-   python3 event_server.py
+    python3 event_server.py
 
 and then in a different window:
 
-   python3 nnet3_model.py
+    python3 nnet3_model.py
 
 You can browse to http://127.0.0.1:5000/ and should see words appear. Word confidences are computed after an utterance is decoded and visualized with different levels of greyness.
 
