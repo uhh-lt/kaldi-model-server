@@ -20,7 +20,7 @@ You can browse to http://127.0.0.1:5000/ and should see words appear. Word confi
 
 # Installation
 
-The easist way to install PyKaldi and kaldi-model-server is with a virtual environment:
+The easist way to install PyKaldi and kaldi-model-server is in a virtual environment:
 
     mkdir ~/projects/
     cd ~/projects/
@@ -58,3 +58,8 @@ You can test the install with:
 
     ~/projects/pykaldi$ python3 setup.py test
 
+Whenever you want to run nnet3_model.py you have to run source ./bin/activate once per Bash session:
+
+    cd ~/projects/kaldi-model-server
+    source ./bin/activate
+    python3 nnet3_model.py
