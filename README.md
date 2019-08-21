@@ -20,6 +20,35 @@ You can browse to http://127.0.0.1:5000/ and should see words appear. Word confi
 
 # Installation
 
+## The easist way to install PyKaldi is with a virtual environment
 
+mkdir ~/projects/
+cd ~/projects/
+git clone https://github.com/pykaldi/pykaldi
+git clone https://github.com/uhh-lt/kaldi-model-server
 
+cd kaldi-model-server
+
+virtualenv -p python3 .
+source ./bin/activate
+
+## Ubuntu dependencies
+sudo apt-get install portaudio19-dev autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev
+
+## Python pip dependencies
+pip3 install numpy pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4
+
+## Compile and install Protobuf, CLIF and KALDI dependencies (compiliation can take some time)
+cd  ~/projects/pykaldi/tools/
+./install_protobuf.sh ~/projects/kaldi-model-server/bin/python3
+./install_clif.sh ~/projects/kaldi-model-server/bin/python3
+./install_kaldi.sh ~/projects/kaldi-model-server/bin/python3
+
+cd ~/projects/pykaldi
+
+## Now install pykaldi
+~/projects/pykaldi$ python3 setup.py install
+
+## You can test the install with:
+~/projects/pykaldi$ python3 setup.py test
 
