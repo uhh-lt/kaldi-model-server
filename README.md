@@ -10,11 +10,15 @@ example/ An example HTML5 application that visualizes
 
 To start the demo run 
 
-    python3 event_server.py
+```bash
+python3 event_server.py
+```
 
 and then in a different window:
 
+```bash
     python3 nnet3_model.py
+```
 
 You can browse to http://127.0.0.1:5000/ and should see words appear. Word confidences are computed after an utterance is decoded and visualized with different levels of greyness.
 
@@ -22,16 +26,18 @@ You can browse to http://127.0.0.1:5000/ and should see words appear. Word confi
 
 The easist way to install PyKaldi and kaldi-model-server is in a virtual environment:
 
-    mkdir ~/projects/
-    cd ~/projects/
-    git clone https://github.com/pykaldi/pykaldi
-    git clone https://github.com/uhh-lt/kaldi-model-server
+```bash
+mkdir ~/projects/
+cd ~/projects/
+git clone https://github.com/pykaldi/pykaldi
+git clone https://github.com/uhh-lt/kaldi-model-server
 
-    cd kaldi-model-server
+cd kaldi-model-server
 
-    sudo apt-get install virtualenv
-    virtualenv -p python3 .
-    source ./bin/activate
+sudo apt-get install virtualenv
+virtualenv -p python3 .
+source ./bin/activate
+```
 
 Install Ubuntu dependencies for PyKaldi and kaldi-model-server:
 
