@@ -48,10 +48,9 @@ Compile and install Protobuf, CLIF and KALDI dependencies (compiliation can take
     ./install_clif.sh ~/projects/kaldi-model-server/bin/python3
     ./install_kaldi.sh ~/projects/kaldi-model-server/bin/python3
 
-    cd ~/projects/pykaldi
-
 Now install pykaldi:
 
+    cd ~/projects/pykaldi
     ~/projects/pykaldi$ python3 setup.py install
 
 You can test the install with:
