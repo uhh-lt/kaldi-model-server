@@ -34,12 +34,15 @@ The easist way to install PyKaldi and kaldi-model-server is with a virtual envir
     source ./bin/activate
 
 Install ubuntu dependencies for PyKaldi and kaldi-model-server:
+
     sudo apt-get install portaudio19-dev autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev
 
 Install Python pip dependencies:
+
     pip3 install numpy pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4
 
 Compile and install Protobuf, CLIF and KALDI dependencies (compiliation can take some time):
+
     cd  ~/projects/pykaldi/tools/
     ./install_protobuf.sh ~/projects/kaldi-model-server/bin/python3
     ./install_clif.sh ~/projects/kaldi-model-server/bin/python3
@@ -48,8 +51,10 @@ Compile and install Protobuf, CLIF and KALDI dependencies (compiliation can take
     cd ~/projects/pykaldi
 
 Now install pykaldi:
+
     ~/projects/pykaldi$ python3 setup.py install
 
 You can test the install with:
+
     ~/projects/pykaldi$ python3 setup.py test
 
