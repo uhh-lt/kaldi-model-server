@@ -16,23 +16,23 @@ body.modal-open {
 }
 
 #chat-area {
-    height: 130px;
+    /*height: 130px;*/
     overflow: auto;
-    border: 1px solid #ddd; 
+    border: 1px solid #ddd;
     padding: 10px;
-    background: #fff; 
+    background: #fff;
     border-radius: 6px;
     margin: 0;
     margin-bottom: 20px;
     /*line-height: 2em;*/
  }
-  
-#chat-area span  { 
-    color: white; 
-    background: #333; 
-    padding: 4px 8px; 
-    border-radius: 0.5em; 
-    margin: 0 5px 0 0; 
+
+#chat-area .speaker {
+    color: white;
+    background: #333;
+    padding: 4px 8px;
+    border-radius: 0.5em;
+    margin: 0 5px 0 0;
 }
 
 h1, .h1, h2, .h2, h3, .h3 {

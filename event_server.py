@@ -4,6 +4,7 @@
 __author__ = 'Benjamin Milde'
 
 import flask
+from flask_cors import CORS
 import redis
 import os
 import json
@@ -23,6 +24,8 @@ app.secret_key = 'asdf'
 app._static_folder = base_path
 app._static_files_root_folder_path = base_path
 
+CORS(app)
+
 red = redis.StrictRedis()
 
 long_poll_timeout = 0.5
@@ -34,8 +37,10 @@ def event_stream():
     pubsub = red.pubsub()
     pubsub.subscribe(server_channel)
     for message in pubsub.listen():
-        print('New message:', message)
-        yield 'data: %s\n\n' % message['data']
+        if not message['type'] == 'subscribe':
+            print('New message:', message)
+            print(type(message['data']))
+            yield b'data: %s\n\n' % message['data']
 
 #Event stream end point for the browser, connection is left open. Must be used with threaded Flask.
 @app.route('/stream')
