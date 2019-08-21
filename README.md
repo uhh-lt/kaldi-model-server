@@ -11,6 +11,7 @@ example/ An example HTML5 application that visualizes
 To start the demo run 
 
 ```bash
+/etc/init.d/redis-server start
 python3 event_server.py
 ```
 
