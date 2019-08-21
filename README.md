@@ -44,11 +44,12 @@ Install Python pip dependencies:
 Compile and install Protobuf, CLIF and KALDI dependencies (compiliation can take some time unfortunatly):
 
     cd  ~/projects/pykaldi/tools/
-    ./install_protobuf.sh ~/projects/kaldi-model-server/bin/python3
-    ./install_clif.sh ~/projects/kaldi-model-server/bin/python3
-    ./install_kaldi.sh ~/projects/kaldi-model-server/bin/python3
+    ./check_dependencies.sh  # checks if system dependencies are installed
+    ./install_protobuf.sh ~/projects/kaldi-model-server/bin/python3  # installs both the Protobuf C++ library and the Python package
+    ./install_clif.sh ~/projects/kaldi-model-server/bin/python3  # installs both the CLIF C++ library and the Python package
+    ./install_kaldi.sh ~/projects/kaldi-model-server/bin/python3 # installs the Kaldi C++ library
 
-Now install pykaldi:
+Now install PyKaldi:
 
     cd ~/projects/pykaldi
     ~/projects/pykaldi$ python3 setup.py install
