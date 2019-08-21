@@ -17,7 +17,7 @@ python3 event_server.py
 and then in a different window:
 
 ```bash
-    python3 nnet3_model.py
+python3 nnet3_model.py
 ```
 
 You can browse to http://127.0.0.1:5000/ and should see words appear. Word confidences are computed after an utterance is decoded and visualized with different levels of greyness.
@@ -41,31 +41,43 @@ source ./bin/activate
 
 Install Ubuntu dependencies for PyKaldi and kaldi-model-server:
 
-    sudo apt-get install portaudio19-dev autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev
+```bash
+sudo apt-get install portaudio19-dev autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev
+```
 
 Install Python pip dependencies:
 
-    pip3 install numpy pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4
+```bash
+pip3 install numpy pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4
+```
 
 Compile and install Protobuf, CLIF and KALDI dependencies (compiliation can take some time unfortunatly):
 
-    cd  ~/projects/pykaldi/tools/
-    ./check_dependencies.sh  # checks if system dependencies are installed
-    ./install_protobuf.sh ~/projects/kaldi-model-server/bin/python3  # installs both the Protobuf C++ library and the Python package
-    ./install_clif.sh ~/projects/kaldi-model-server/bin/python3  # installs both the CLIF C++ library and the Python package
-    ./install_kaldi.sh ~/projects/kaldi-model-server/bin/python3 # installs the Kaldi C++ library
+```bash
+cd  ~/projects/pykaldi/tools/
+./check_dependencies.sh  # checks if system dependencies are installed
+./install_protobuf.sh ~/projects/kaldi-model-server/bin/python3  # installs both the Protobuf C++ library and the Python package
+./install_clif.sh ~/projects/kaldi-model-server/bin/python3  # installs both the CLIF C++ library and the Python package
+./install_kaldi.sh ~/projects/kaldi-model-server/bin/python3 # installs the Kaldi C++ library
+```
 
 Now install PyKaldi:
 
-    cd ~/projects/pykaldi
-    ~/projects/pykaldi$ python3 setup.py install
+```bash
+cd ~/projects/pykaldi
+~/projects/pykaldi$ python3 setup.py install
+```
 
 You can test the install with:
 
-    ~/projects/pykaldi$ python3 setup.py test
+```bash
+~/projects/pykaldi$ python3 setup.py test
+```
 
 Whenever you want to run nnet3_model.py you have to run source ./bin/activate once per Bash session:
 
-    cd ~/projects/kaldi-model-server
-    source ./bin/activate
-    python3 nnet3_model.py
+```bash
+cd ~/projects/kaldi-model-server
+source ./bin/activate
+python3 nnet3_model.py
+```
