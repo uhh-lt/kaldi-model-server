@@ -18,4 +18,8 @@ and then in a different window:
 
 You can browse to http://127.0.0.1:5000/ and should see words appear. Word confidences are computed after an utterance is decoded and visualized with different levels of greyness.
 
+# Installation
+
+
+
 
