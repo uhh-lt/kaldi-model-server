@@ -1,3 +1,0 @@
-usdo apt-get install portaudio19-dev redis-server
-
-pip3 install pyaudio
