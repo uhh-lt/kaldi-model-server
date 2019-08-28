@@ -49,12 +49,18 @@ import redis
 from timer import Timer
 
 import numpy as np
+import samplerate
 
 import argparse
 
+import scipy.io.wavfile as wavefile
+
 chunk_size = 1440
 chunk_size = 1200
-chunk_size = 2048
+chunk_size = 1024*3
+
+record_samplerate = 48000
+
 models_path = 'models/'
 online_config = models_path + "kaldi_tuda_de_nnet3_chain2.online.conf"
 yaml_config = "models/kaldi_tuda_de_nnet3_chain2.yaml"
@@ -116,16 +122,17 @@ def load_model(config_file):
             online_config_file.write("--feature_type=mfcc\n")
             online_config_file.write("--ivector_extraction_config=" + models_path + decoder_yaml_opts['ivector-extraction-config'] + '\n')
             online_config_file.write("--endpoint.silence-phones=" + decoder_yaml_opts['endpoint-silence-phones'] + '\n')
-    
+
     po = ParseOptions("")
     feat_opts.register(po)
     endpoint_opts.register(po)
     po.read_config_file(models_path + "kaldi_tuda_de_nnet3_chain2.online.conf")
     feat_info = OnlineNnetFeaturePipelineInfo.from_config(feat_opts)
-    
+
     # Construct recognizer
     decoder_opts = LatticeFasterDecoderOptions()
     decoder_opts.beam = 13
+    decoder_opts.beam = 10
     decoder_opts.max_active = 7000
     decodable_opts = NnetSimpleLoopedComputationOptions()
     decodable_opts.acoustic_scale = 1.0
@@ -136,7 +143,7 @@ def load_model(config_file):
         decoder_opts=decoder_opts,
         decodable_opts=decodable_opts,
         endpoint_opts=endpoint_opts)
-    
+
     return asr, feat_info, decodable_opts
 
 asr, feat_info, decodable_opts = load_model(yaml_config)
@@ -267,9 +274,18 @@ def print_devices(paudio):
             print("Output Device id ", i, " - ", paudio.get_device_info_by_host_api_device_index(0,i).get('name'))
 
 
-def decode_chunked_partial_endpointing_mic(paudio,input_microphone_id,samp_freq=16000, compute_confidences=True, asr_client=None, speaker="Speaker"):
-    stream = paudio.open(format=pyaudio.paInt16, channels=1, rate=samp_freq, input=True,
-                         frames_per_buffer=1024, input_device_index=input_microphone_id)
+def decode_chunked_partial_endpointing_mic(paudio,input_microphone_id, samp_freq=16000, compute_confidences=True, asr_client=None, speaker="Speaker"):
+    need_resample = False
+    if record_samplerate != samp_freq:
+        print("Activate resampling", record_samplerate, "->", samp_freq)
+        resampler = samplerate.Resampler('sinc_best', channels=1)
+        need_resample = True
+        ratio = samp_freq / record_samplerate
+        print("ratio:", ratio)
+
+    stream = paudio.open(format=pyaudio.paInt16, channels=1, rate=record_samplerate, input=True,
+                         frames_per_buffer=chunk_size, input_device_index=input_microphone_id)
+
     adaptation_state = OnlineIvectorExtractorAdaptationState.from_info(feat_info.ivector_extractor_info)
     key = 'mic' + str(input_microphone_id)
     feat_pipeline = OnlineNnetFeaturePipeline(feat_info)
@@ -284,11 +300,24 @@ def decode_chunked_partial_endpointing_mic(paudio,input_microphone_id,samp_freq=
     utt, part = 1, 1
     prev_num_frames_decoded, offset_complete = 0, 0
     chunks_read = 0
+    blocks = []
+    rawblocks = []
     while not last_chunk:
+    #for a in range(50):
         #if i + chunk_size >= len(data):
         #    last_chunk = True
-        block_raw = stream.read(chunk_size)
-        block = np.frombuffer(block_raw, dtype=np.uint16)
+        block_raw = stream.read(chunk_size, exception_on_overflow = False)
+        npblock = np.frombuffer(block_raw, dtype=np.int16)
+        #print(npblock)
+        rawblocks.append(npblock)
+        if need_resample:
+            block = resampler.process(np.array(npblock, copy=True), ratio)
+            block = np.array(block,dtype=np.int16)
+            #block /= 65536.0
+            #print(block)
+        else:
+            block = npblock
+        blocks.append(block)
         #print("len raw block:", len(block_raw))
         #print("len block:", len(block))
         chunks_read += 1
@@ -304,34 +333,36 @@ def decode_chunked_partial_endpointing_mic(paudio,input_microphone_id,samp_freq=
         num_frames_decoded = asr.decoder.num_frames_decoded()
         if not last_chunk:
             if asr.endpoint_detected():
-                asr.finalize_decoding()
-                out = asr.get_output()
-                mbr = MinimumBayesRisk(out["lattice"])
-                confd = mbr.get_one_best_confidences()
-                print(confd)
-                print(key + "-utt%d-final" % utt, out["text"], flush=True)
-                if asr_client is not None:
-                    asr_client.completeUtterance(utterance=out["text"], key=key + "-utt%d-part%d" % (utt, part), confidences=confd, speaker=speaker)
-                offset_complete += int(num_frames_decoded
-                              * decodable_opts.frame_subsampling_factor
-                              * feat_pipeline.frame_shift_in_seconds()
-                              * samp_freq)
-                print("offset_complete:", offset_complete)
-                offset = offset_complete - (chunks_read*chunk_size)
-                print("offset:", offset_complete)
-                feat_pipeline.get_adaptation_state(adaptation_state)
-                feat_pipeline = OnlineNnetFeaturePipeline(feat_info)
-                feat_pipeline.set_adaptation_state(adaptation_state)
-                asr.set_input_pipeline(feat_pipeline)
-                asr.init_decoding()
-                sil_weighting = OnlineSilenceWeighting(
-                    asr.transition_model, feat_info.silence_weighting_config,
-                    decodable_opts.frame_subsampling_factor)
-                remainder = block[offset:]
-                feat_pipeline.accept_waveform(samp_freq, Vector(remainder))
-                utt += 1
-                part = 1
-                prev_num_frames_decoded = 0
+                if num_frames_decoded > 0:
+                    asr.finalize_decoding()
+                    out = asr.get_output()
+                    mbr = MinimumBayesRisk(out["lattice"])
+                    confd = mbr.get_one_best_confidences()
+                    print(confd)
+                    print(key + "-utt%d-final" % utt, out["text"], flush=True)
+                    if asr_client is not None:
+                        asr_client.completeUtterance(utterance=out["text"], key=key + "-utt%d-part%d" % (utt, part), confidences=confd, speaker=speaker)
+                    offset_complete += int(num_frames_decoded
+                                  * decodable_opts.frame_subsampling_factor
+                                  * feat_pipeline.frame_shift_in_seconds()
+                                  * samp_freq)
+                    print("offset_complete:", offset_complete)
+                    offset = offset_complete - (chunks_read*chunk_size)
+                    print("offset:", offset_complete)
+                    feat_pipeline.get_adaptation_state(adaptation_state)
+                    feat_pipeline = OnlineNnetFeaturePipeline(feat_info)
+                    feat_pipeline.set_adaptation_state(adaptation_state)
+                    asr.set_input_pipeline(feat_pipeline)
+                    asr.init_decoding()
+                    sil_weighting = OnlineSilenceWeighting(
+                        asr.transition_model, feat_info.silence_weighting_config,
+                        decodable_opts.frame_subsampling_factor)
+
+                    remainder = block[offset:]
+                    feat_pipeline.accept_waveform(samp_freq, Vector(remainder))
+                    utt += 1
+                    part = 1
+                    prev_num_frames_decoded = 0
             elif num_frames_decoded > prev_num_frames_decoded:
                 prev_num_frames_decoded = num_frames_decoded
                 out = asr.get_partial_output()
@@ -340,6 +371,14 @@ def decode_chunked_partial_endpointing_mic(paudio,input_microphone_id,samp_freq=
                 if asr_client is not None:
                     asr_client.partialUtterance(utterance=out["text"], key=key + "-utt%d-part%d" % (utt, part), speaker=speaker)
                 part += 1
+    #print(blocks)
+    #print(rawblocks)
+    #print(np.hstack(blocks))
+    #print(np.concatenate(blocks, axis=None))
+    wavefile.write("test.wav", samp_freq, np.concatenate(blocks, axis=None))
+    wavefile.write("testraw.wav", record_samplerate, np.concatenate(rawblocks, axis=None))
+
+
     asr.finalize_decoding()
     out = asr.get_output()
     mbr = MinimumBayesRisk(out["lattice"])
@@ -348,7 +387,7 @@ def decode_chunked_partial_endpointing_mic(paudio,input_microphone_id,samp_freq=
     print(key + "-utt%d-final" % utt, out["text"], flush=True)
     if asr_client is not None:
         asr_client.completeUtterance(utterance=out["text"], key=key + "-utt%d-part%d" % (utt, part), confidences=confd, speaker=speaker)
-    
+
 #decode_chunked_partial("scp:wav.scp")
 
 if __name__ == '__main__':
