@@ -6,7 +6,7 @@ Because redis supports a [wide range of different programming languages](https:/
 
 For demonstration purposes we added an simple demo example application that uses a Python based event server with [Flask](https://palletsprojects.com/p/flask/) (event_server.py) to display the recognized words in a simple HTML5 app running in a browser window:
 
-example/ An example HTML5 application that visualizes 
+example/ An example HTML5 application that visualizes decoded speech with confidence values
 
 To start the demo run 
 
