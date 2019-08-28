@@ -40,10 +40,18 @@ virtualenv -p python3 .
 source ./bin/activate
 ```
 
-Install Ubuntu dependencies for PyKaldi and kaldi-model-server:
+To install dependencies for PyKaldi and kaldi-model-server on Ubuntu do:
 
 ```bash
+# Ubuntu linux
 sudo apt-get install portaudio19-dev redis-server autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev
+```
+
+
+On a mac:
+```bash
+# Mac OS X, see https://brew.sh/
+brew upgrade automake cmake git graphviz libtool pkg-config wget
 ```
 
 Install Python pip dependencies:
