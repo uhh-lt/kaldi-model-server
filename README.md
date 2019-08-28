@@ -25,6 +25,28 @@ You can browse to http://127.0.0.1:5000/ and should see words appear. Word confi
 
 # Installation
 
+To install dependencies for PyKaldi and kaldi-model-server on Ubuntu do:
+
+```bash
+# Ubuntu Linux
+sudo apt-get install portaudio19-dev redis-server autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev virtualenv
+```
+
+On a Mac:
+
+```bash
+# Mac OS X, see https://brew.sh/
+brew upgrade automake cmake git graphviz libtool pkg-config wget
+
+brew upgrade python3
+pip3 install virtualenv
+pip3 install virtualenvwrapper
+
+brew install redis
+brew services start redis
+
+```
+
 The easist way to install PyKaldi and kaldi-model-server is in a virtual environment:
 
 ```bash
@@ -35,29 +57,14 @@ git clone https://github.com/uhh-lt/kaldi-model-server
 
 cd kaldi-model-server
 
-sudo apt-get install virtualenv
 virtualenv -p python3 .
 source ./bin/activate
 ```
 
-To install dependencies for PyKaldi and kaldi-model-server on Ubuntu do:
+Install Python3 pip dependencies:
 
 ```bash
-# Ubuntu linux
-sudo apt-get install portaudio19-dev redis-server autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev
-```
-
-
-On a mac:
-```bash
-# Mac OS X, see https://brew.sh/
-brew upgrade automake cmake git graphviz libtool pkg-config wget
-```
-
-Install Python pip dependencies:
-
-```bash
-pip3 install numpy pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4
+pip3 install numpy pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4 portaudio
 ```
 
 Compile and install Protobuf, CLIF and KALDI dependencies (compiliation can take some time unfortunatly):
