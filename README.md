@@ -42,6 +42,9 @@ brew upgrade python3
 pip3 install virtualenv
 pip3 install virtualenvwrapper
 
+brew install redis
+brew services start redis
+
 ```
 
 The easist way to install PyKaldi and kaldi-model-server is in a virtual environment:
