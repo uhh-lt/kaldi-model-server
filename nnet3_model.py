@@ -57,9 +57,9 @@ import scipy.io.wavfile as wavefile
 
 chunk_size = 1440
 chunk_size = 1200
-chunk_size = 1024*3
+chunk_size = 1024 #*3
 
-record_samplerate = 48000
+record_samplerate = 16000 #48000
 
 models_path = 'models/'
 online_config = models_path + "kaldi_tuda_de_nnet3_chain2.online.conf"
@@ -190,7 +190,7 @@ def decode_chunked_partial_endpointing(scp, compute_confidences=True, asr_client
     #         + ivector adaptation + silence weighting)
     adaptation_state = OnlineIvectorExtractorAdaptationState.from_info(
         feat_info.ivector_extractor_info)
-    for key, wav in SequentialWaveReader("scp:wav.scp"):
+    for key, wav in SequentialWaveReader(scp):
         feat_pipeline = OnlineNnetFeaturePipeline(feat_info)
         feat_pipeline.set_adaptation_state(adaptation_state)
         asr.set_input_pipeline(feat_pipeline)
@@ -303,7 +303,7 @@ def decode_chunked_partial_endpointing_mic(paudio,input_microphone_id, samp_freq
     blocks = []
     rawblocks = []
     while not last_chunk:
-    #for a in range(50):
+    #for a in range(500):
         #if i + chunk_size >= len(data):
         #    last_chunk = True
         block_raw = stream.read(chunk_size, exception_on_overflow = False)
