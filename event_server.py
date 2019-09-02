@@ -62,7 +62,7 @@ def start():
     return 'OK'
 
 @app.route('/shutdown')
-def start():
+def shutdown():
     red.publish(decode_control_channel, 'shutdown')
     print("shutdown called")
     return 'OK'

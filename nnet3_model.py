@@ -398,6 +398,8 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
         print("Saving debug output...")
         wavefile.write("debug.wav", samp_freq, np.concatenate(blocks, axis=None))
         wavefile.write("debugraw.wav", record_samplerate, np.concatenate(rawblocks, axis=None))
+    else:
+        print("Not writing debug wav output since --save_debug_wav is not set.")
 
     print("Shutdown: finalizing ASR output...")
     asr.finalize_decoding()
