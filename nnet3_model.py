@@ -177,7 +177,7 @@ def decode_chunked_partial(scp):
         out = asr.get_output()
         print(key + "-final", out["text"], flush=True)
 
-def decode_chunked_partial_endpointing(asr, feat_info, decodable_opts, scp,
+def decode_chunked_partial_endpointing(asr, feat_info, decodable_opts, scp, chunk_size=1024,
                                        compute_confidences=True, asr_client=None, speaker="Speaker"):
     # Decode (chunked + partial output + endpointing
     #         + ivector adaptation + silence weighting)
@@ -481,7 +481,9 @@ if __name__ == '__main__':
         if args.micid == -1:
             print("Reading from wav scp:", args.input)
             asr_client.asr_ready(speaker=args.speaker_name)
-            decode_chunked_partial_endpointing(asr, feat_info, decodable_opts, args.input, asr_client=asr_client, speaker=args.speaker_name)
+            decode_chunked_partial_endpointing(asr, feat_info, decodable_opts, args.input,
+                                               asr_client=asr_client, speaker=args.speaker_name,
+                                               chunk_size=args.chunk_size)
         else:
             paudio = pyaudio.PyAudio()
             decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, asr_client=asr_client,
