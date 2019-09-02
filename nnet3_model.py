@@ -89,9 +89,11 @@ class ASRRedisClient():
         red.publish(self.channel, json.dumps(data))
 
     def asr_loading(self, speaker):
+        self.checkTimer()
         data = {'handle': 'asr_loading', 'time': float(self.timer.current_secs()), 'speaker': speaker}
 
     def asr_ready(self, speaker):
+        self.checkTimer()
         data = {'handle': 'asr_ready', 'time': float(self.timer.current_secs()), 'speaker': speaker}
 
 def load_model(config_file, online_config, models_path='models/'):
