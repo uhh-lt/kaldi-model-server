@@ -56,11 +56,6 @@ import argparse
 
 import scipy.io.wavfile as wavefile
 
-chunk_size = 1440
-chunk_size = 1200
-chunk_size = 1024 #*3
-
-
 red = redis.StrictRedis()
 decode_control_channel = 'asr_control'
 
@@ -273,7 +268,7 @@ def print_devices(paudio):
 
 
 def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, input_microphone_id,
-                                           samp_freq=16000, record_samplerate=16000 , compute_confidences=True, asr_client=None, speaker="Speaker",
+                                           samp_freq=16000, record_samplerate=16000, chunk_size=1024, compute_confidences=True, asr_client=None, speaker="Speaker",
                                            resample_algorithm="sinc_best", save_debug_wav=False):
     p = red.pubsub()
     p.subscribe(decode_control_channel)
@@ -451,6 +446,8 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--list-audio-interfaces', dest='list_audio_interfaces', help='List all available audio interfaces on this system', action='store_true', default=False)
     parser.add_argument('-m', '--mic-id', dest='micid', help='Microphone ID, if not set to -1, do online decoding directly from the microphone.', type=int, default='-1')
     parser.add_argument('-s', '--speaker-name', dest='speaker_name', help='Name of the speaker', type=str, default='speaker')
+    parser.add_argument('-cs', '--chunk_size', dest='chunk_size', help='Default buffer size for the microphone buffer.', type=int, default=1024)
+
     parser.add_argument('-c', '--redis-channel', dest='redis_channel', help='Name of the channel (for redis-server)', type=str, default='asr')
     parser.add_argument('-y', '--yaml-config', dest='yaml_config', help='Path to the yaml model config', type=str, default='models/kaldi_tuda_de_nnet3_chain2.yaml')
     parser.add_argument('-o', '--online-config', dest='online_config', help='Path to the Kaldi online config. If not available, will try to read the parameters from the yaml'
@@ -485,5 +482,6 @@ if __name__ == '__main__':
             asr_client = ASRRedisClient(channel=args.redis_channel)
             decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, asr_client=asr_client,
                                                    input_microphone_id=args.micid, speaker=args.speaker_name,
-                                                   record_samplerate = args.record_samplerate,
+                                                   samp_freq=args.decode_samplerate, record_samplerate=args.record_samplerate,
+                                                   chunk_size=args.chunk_size,
                                                    resample_algorithm=args.resample_algorithm, save_debug_wav=args.save_debug_wav)
