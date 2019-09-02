@@ -78,20 +78,21 @@ class ASRRedisClient():
 
     def partialUtterance(self, utterance, key='none', speaker='Speaker'):
         self.checkTimer()
-        data = {'handle':'partialUtterance','utterance':utterance, 'key':key, 'speaker':speaker, 'time': float(self.timer.current_secs())}
+        data = {'handle': 'partialUtterance', 'utterance': utterance, 'key': key,
+                'speaker': speaker, 'time': float(self.timer.current_secs())}
         red.publish(self.channel, json.dumps(data))
 
     def completeUtterance(self, utterance, confidences, key='none', speaker='Speaker'):
         self.checkTimer()
-        data = {'handle':'completeUtterance','utterance':utterance,'confidences':confidences,'key':key, 'speaker':speaker, 'time': float(self.timer.current_secs())}
+        data = {'handle': 'completeUtterance', 'utterance': utterance, 'confidences': confidences,
+                'key': key, 'speaker': speaker, 'time': float(self.timer.current_secs())}
         red.publish(self.channel, json.dumps(data))
 
-    def reset(self):
-        data = {'handle':'reset'}
-        red.publish(self.channel, json.dumps(data))
-        self.resetTimer()
-        r = requests.post(self.server_url+'reset', data=json.dumps(data), headers=self.request_header)
-        return r.status_code
+    def asr_loading(self, speaker):
+        data = {'handle': 'asr_loading', 'time': float(self.timer.current_secs()), 'speaker': speaker}
+
+    def asr_ready(self, speaker):
+        data = {'handle': 'asr_ready', 'time': float(self.timer.current_secs()), 'speaker': speaker}
 
 def load_model(config_file, online_config, models_path='models/'):
     # Read YAML file
@@ -301,6 +302,8 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
     do_decode = True
     need_finalize = False
 
+    asr_client.asr_ready(speaker=speaker)
+
     while not last_chunk:
     #for a in range(500):
         #if i + chunk_size >= len(data):
@@ -472,14 +475,15 @@ if __name__ == '__main__':
         paudio = pyaudio.PyAudio()
         print_devices(paudio)
     else:
+        asr_client = ASRRedisClient(channel=args.redis_channel)
+        asr_client.asr_loading(speaker=args.speaker_name)
         asr, feat_info, decodable_opts = load_model(args.yaml_config, args.online_config)
         if args.micid == -1:
             print("Reading from wav scp:", args.input)
-            asr_client = ASRRedisClient(channel=args.redis_channel)
+            asr_client.asr_ready(speaker=args.speaker_name)
             decode_chunked_partial_endpointing(asr, feat_info, decodable_opts, args.input, asr_client=asr_client, speaker=args.speaker_name)
         else:
             paudio = pyaudio.PyAudio()
-            asr_client = ASRRedisClient(channel=args.redis_channel)
             decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, asr_client=asr_client,
                                                    input_microphone_id=args.micid, speaker=args.speaker_name,
                                                    samp_freq=args.decode_samplerate, record_samplerate=args.record_samplerate,
