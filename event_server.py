@@ -18,6 +18,7 @@ from werkzeug.serving import WSGIRequestHandler
 base_path = os.getcwd() + '/example/'
 
 server_channel = 'asr'
+decode_control_channel = 'asr_control'
 
 app = flask.Flask(__name__)
 app.secret_key = 'asdf'
@@ -38,9 +39,27 @@ def event_stream():
     pubsub.subscribe(server_channel)
     for message in pubsub.listen():
         if not message['type'] == 'subscribe':
-            print('New message:', message)
-            print(type(message['data']))
+            #print('New message:', message)
+            #print(type(message['data']))
             yield b'data: %s\n\n' % message['data']
+
+@app.route('/reset')
+def reset():
+    red.publish(decode_control_channel, 'reset')
+    print("reset called")
+    return 'OK'
+
+@app.route('/stop')
+def stop():
+    red.publish(decode_control_channel, 'stop')
+    print("stop called")
+    return 'OK'
+
+@app.route('/start')
+def start():
+    red.publish(decode_control_channel, 'start')
+    print("start called")
+    return 'OK'
 
 #Event stream end point for the browser, connection is left open. Must be used with threaded Flask.
 @app.route('/stream')
