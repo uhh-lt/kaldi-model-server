@@ -275,7 +275,7 @@ def print_devices(paudio):
 
 def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, input_microphone_id,
                                            samp_freq=16000, compute_confidences=True, asr_client=None, speaker="Speaker",
-                                           resample_algorithm="sinc_best"):
+                                           resample_algorithm="sinc_best", save_debug_wav=False):
     p = red.pubsub()
     p.subscribe(decode_control_channel)
 
@@ -327,19 +327,23 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
                     need_finalize = True
                 do_decode = False
 
+            elif msg['data'] == b"shutdown":
+                print('Shutdown command received!')
+                last_chunk = True
+
         # We always consume from the microphone stream, even if we do not decode
         block_raw = stream.read(chunk_size, exception_on_overflow=False)
         npblock = np.frombuffer(block_raw, dtype=np.int16)
-        #print(npblock)
-        rawblocks.append(npblock)
+
         if need_resample:
             block = resampler.process(np.array(npblock, copy=True), ratio)
-            block = np.array(block,dtype=np.int16)
-            #block /= 65536.0
-            #print(block)
+            block = np.array(block, dtype=np.int16)
         else:
             block = npblock
-        blocks.append(block)
+
+        if save_debug_wav:
+            blocks.append(block)
+            rawblocks.append(npblock)
 
         if need_finalize:
             out, confd, feat_pipeline, sil_weighting = finalize_decode(asr, asr_client,
@@ -349,8 +353,6 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
             need_finalize = False
 
         if do_decode:
-            #print("len raw block:", len(block_raw))
-            #print("len block:", len(block))
             chunks_read += 1
             feat_pipeline.accept_waveform(samp_freq, Vector(block))
             if last_chunk:
@@ -392,9 +394,12 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
         else:
             time.sleep(0.001)
 
-    wavefile.write("test.wav", samp_freq, np.concatenate(blocks, axis=None))
-    wavefile.write("testraw.wav", record_samplerate, np.concatenate(rawblocks, axis=None))
+    if save_debug_wav:
+        print("Saving debug output...")
+        wavefile.write("debug.wav", samp_freq, np.concatenate(blocks, axis=None))
+        wavefile.write("debugraw.wav", record_samplerate, np.concatenate(rawblocks, axis=None))
 
+    print("Shutdown: finalizing ASR output...")
     asr.finalize_decoding()
     out = asr.get_output()
     mbr = MinimumBayesRisk(out["lattice"])
@@ -403,6 +408,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
     print(key + "-utt%d-final" % utt, out["text"], flush=True)
     if asr_client is not None:
         asr_client.completeUtterance(utterance=out["text"], key=key + "-utt%d-part%d" % (utt, part), confidences=confd, speaker=speaker)
+    print("Done, will exit now.")
 
 
 def initNnetFeatPipeline(adaptation_state, asr, decodable_opts, feat_info):
@@ -457,6 +463,10 @@ if __name__ == '__main__':
                                                                                       " sinc_medium, zero_order_hold (default: sinc_best)",
                                                                                       type=str, default="sinc_best")
 
+    parser.add_argument('-w', '--save_debug_wav', dest='save_debug_wav', help='This will write out a debug.wav (resampled)'
+                                                                              ' and debugraw.wav (original) after decoding,'
+                                                                              ' so that the recording quality can be analysed', action='store_true', default=False)
+
     args = parser.parse_args()
 
     if args.list_audio_interfaces:
@@ -472,4 +482,6 @@ if __name__ == '__main__':
         else:
             paudio = pyaudio.PyAudio()
             asr_client = ASRRedisClient(channel=args.redis_channel)
-            decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, asr_client=asr_client, input_microphone_id=args.micid, speaker=args.speaker_name, resample_algorithm=args.resample_algorithm)
+            decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, asr_client=asr_client,
+                                                   input_microphone_id=args.micid, speaker=args.speaker_name,
+                                                   resample_algorithm=args.resample_algorithm, save_debug_wav=args.save_debug_wav)
