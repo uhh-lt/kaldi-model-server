@@ -2,11 +2,11 @@
 
 Kaldi-model-server is a simple Kaldi model server for online decoding with TDNN chain nnet3 models. It is written in pure Python and uses [PyKaldi](https://github.com/pykaldi/pykaldi) to interface Kaldi as a library. It is mainly meant for live decoding with real microphones and for single-user applications that need to work with realtime speech recognition locally (e.g. dictation, voice assistants) or an aggregation of multiple audio speech streams (e.g. decoding meeting speech). Computations currently happen on the device that interfaces the microphone. The [redis](https://redis.io) messaging server and a event server that can send [server-sent event notifications](https://www.w3schools.com/html/html5_serversentevents.asp) to a web browser can also be run on different devices.
 
-Because redis supports a [wide range of different programming languages](https://redis.io/clients), it can easily be used to interact with decoded speech output in realtime with your favourite programming language.
+Kaldi-model-server works on Linux (preferably Ubuntu / Debian based) and Mac OS X. Because redis supports a [wide range of different programming languages](https://redis.io/clients), it can easily be used to interact with decoded speech output in realtime with your favourite programming language.
 
 For demonstration purposes we added an simple demo example application that uses a Python based event server with [Flask](https://palletsprojects.com/p/flask/) (event_server.py) to display the recognized words in a simple HTML5 app running in a browser window:
 
-example/ An example HTML5 application that visualizes 
+example/ An example HTML5 application that visualizes decoded speech with confidence values
 
 To start the demo run 
 
@@ -64,7 +64,7 @@ source ./bin/activate
 Install Python3 pip dependencies:
 
 ```bash
-pip3 install numpy pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4 portaudio
+pip3 install numpy pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4 portaudio samplerate scipy
 ```
 
 Compile and install Protobuf, CLIF and KALDI dependencies (compiliation can take some time unfortunatly):
