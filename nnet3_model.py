@@ -60,7 +60,6 @@ chunk_size = 1440
 chunk_size = 1200
 chunk_size = 1024 #*3
 
-record_samplerate = 16000 #48000
 
 red = redis.StrictRedis()
 decode_control_channel = 'asr_control'
@@ -274,7 +273,7 @@ def print_devices(paudio):
 
 
 def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, input_microphone_id,
-                                           samp_freq=16000, compute_confidences=True, asr_client=None, speaker="Speaker",
+                                           samp_freq=16000, record_samplerate=16000 , compute_confidences=True, asr_client=None, speaker="Speaker",
                                            resample_algorithm="sinc_best", save_debug_wav=False):
     p = red.pubsub()
     p.subscribe(decode_control_channel)
@@ -486,4 +485,5 @@ if __name__ == '__main__':
             asr_client = ASRRedisClient(channel=args.redis_channel)
             decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, asr_client=asr_client,
                                                    input_microphone_id=args.micid, speaker=args.speaker_name,
+                                                   record_samplerate = args.record_samplerate,
                                                    resample_algorithm=args.resample_algorithm, save_debug_wav=args.save_debug_wav)
