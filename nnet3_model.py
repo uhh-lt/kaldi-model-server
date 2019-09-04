@@ -327,12 +327,14 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
             if msg['data'] == b"start":
                 print('Start command received!')
                 do_decode = True
+                asr_client.sendstatus(isDecoding=do_decode)
 
             elif msg['data'] == b"stop":
                 print('Stop command received!')
                 if do_decode:
                     need_finalize = True
                 do_decode = False
+                asr_client.sendstatus(isDecoding=do_decode)
 
             elif msg['data'] == b"shutdown":
                 print('Shutdown command received!')
