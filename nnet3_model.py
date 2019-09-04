@@ -98,7 +98,7 @@ class ASRRedisClient():
         data = {'handle': 'asr_ready', 'time': float(self.timer.current_secs()), 'speaker': speaker}
         red.publish(self.channel, json.dumps(data))
 
-    def status(self, isDecoding):
+    def sendstatus(self, isDecoding):
         self.checkTimer()
         data = {'handle': 'status', 'time': float(self.timer.current_secs()), 'isDecoding': isDecoding}
         red.publish(self.channel, json.dumps(data))
