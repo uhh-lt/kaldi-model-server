@@ -98,9 +98,9 @@ class ASRRedisClient():
         data = {'handle': 'asr_ready', 'time': float(self.timer.current_secs()), 'speaker': speaker}
         red.publish(self.channel, json.dumps(data))
 
-    def sendstatus(self, isDecoding):
+    def sendstatus(self, isDecoding, shutdown=False):
         self.checkTimer()
-        data = {'handle': 'status', 'time': float(self.timer.current_secs()), 'isDecoding': isDecoding}
+        data = {'handle': 'status', 'time': float(self.timer.current_secs()), 'isDecoding': isDecoding, 'shutdown': shutdown}
         red.publish(self.channel, json.dumps(data))
 
 def load_model(config_file, online_config, models_path='models/'):
@@ -434,6 +434,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
     print(key + "-utt%d-final" % utt, out["text"], flush=True)
     if asr_client is not None:
         asr_client.completeUtterance(utterance=out["text"], key=key + "-utt%d-part%d" % (utt, part), confidences=confd, speaker=speaker)
+        asr_client.sendstatus(isDecoding=False,shutdown=True)
     print("Done, will exit now.")
 
 
