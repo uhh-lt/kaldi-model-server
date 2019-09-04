@@ -37,6 +37,7 @@ def event_stream():
     print("New connection to event_stream!")
     pubsub = red.pubsub()
     pubsub.subscribe(server_channel)
+    yield b'hello'
     for message in pubsub.listen():
         if not message['type'] == 'subscribe':
             #print('New message:', message)
