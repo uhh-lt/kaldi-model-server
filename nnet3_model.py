@@ -304,7 +304,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
     blocks = []
     rawblocks = []
 
-    print("Open microphone stream with id"+str(input_microphone_id)+ "...")
+    print("Open microphone stream with id" + str(input_microphone_id) + "...")
     stream = paudio.open(format=pyaudio.paInt16, channels=channels, rate=record_samplerate, input=True,
                          frames_per_buffer=chunk_size, input_device_index=input_microphone_id)
     print("Done!")
@@ -363,13 +363,6 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
         volume_norm = np.linalg.norm(npblock / 65536.0) * 10.0
         #print("|" * int(volume_norm))
 
-        if need_finalize:
-            out, confd, feat_pipeline, sil_weighting = finalize_decode(asr, asr_client,
-                                                                       feat_pipeline, feat_info,
-                                                                       adaptation_state, key,
-                                                                       part, speaker, utt)
-            need_finalize = False
-
         num_chunks += 1
 
         # send status periodically
@@ -377,46 +370,39 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
             asr_client.sendstatus(isDecoding=do_decode)
 
         if do_decode:
-            chunks_decoded += 1
-            feat_pipeline.accept_waveform(samp_freq, Vector(block))
-            if last_chunk:
-                feat_pipeline.input_finished()
-            if sil_weighting.active():
-                sil_weighting.compute_current_traceback(asr.decoder)
-                feat_pipeline.ivector_feature().update_frame_weights(
-                    sil_weighting.get_delta_weights(
-                        feat_pipeline.num_frames_ready()))
-            asr.advance_decoding()
-            num_frames_decoded = asr.decoder.num_frames_decoded()
-            if not last_chunk:
-                if asr.endpoint_detected():
-                    if num_frames_decoded > 0:
-                        out, confd, feat_pipeline, sil_weighting = finalize_decode(asr, asr_client, feat_pipeline, feat_info, adaptation_state, key, part, speaker, utt)
+            need_endpoint_finalize, prev_num_frames_decoded, part, utt = advance_mic_decoding(adaptation_state, asr, asr_client, block, chunks_decoded, feat_info, feat_pipeline, key, last_chunk,
+                                                            part, prev_num_frames_decoded, samp_freq, sil_weighting, speaker, utt)
 
-                        #offset_complete += int(num_frames_decoded
-                        #              * decodable_opts.frame_subsampling_factor
-                        #              * feat_pipeline.frame_shift_in_seconds()
-                        #              * samp_freq)
-                        #print("offset_complete:", offset_complete)
-                        #offset = offset_complete - (chunks_read*chunk_size)
-                        #print("offset:", offset_complete)
-                        #remainder = block[offset:]
-
-                        #we simplify the above and always resend the last block for the new utterance
-                        feat_pipeline.accept_waveform(samp_freq, Vector(block))
-                        utt += 1
-                        part = 1
-                        prev_num_frames_decoded = 0
-                elif num_frames_decoded > prev_num_frames_decoded:
-                    prev_num_frames_decoded = num_frames_decoded
-                    out = asr.get_partial_output()
-                    print(key + "-utt%d-part%d" % (utt, part),
-                          out["text"], flush=True)
-                    if asr_client is not None:
-                        asr_client.partialUtterance(utterance=out["text"], key=key + "-utt%d-part%d" % (utt, part), speaker=speaker)
-                    part += 1
+            if need_endpoint_finalize:
+                need_finalize = True
+                resend_previous_waveform = True
         else:
             time.sleep(0.001)
+
+        # finalize the decoding here. We might need to finalize if we switch from do_decode=True to do_decode=False
+        # that is why this is outside of that block
+        if need_finalize:
+            out, confd  = finalize_decode(asr, asr_client, key,
+                                           part, speaker, utt)
+            feat_pipeline, sil_weighting = reinitialize_asr(adaptation_state, asr, feat_info, feat_pipeline)
+            utt += 1
+            part = 1
+
+            if resend_previous_waveform:
+                # offset_complete += int(num_frames_decoded
+                #              * decodable_opts.frame_subsampling_factor
+                #              * feat_pipeline.frame_shift_in_seconds()
+                #              * samp_freq)
+                # print("offset_complete:", offset_complete)
+                # offset = offset_complete - (chunks_read*chunk_size)
+                # print("offset:", offset_complete)
+                # remainder = block[offset:]
+
+                # we simplify the above and always resend the last block for the new utterance
+                feat_pipeline.accept_waveform(samp_freq, Vector(block))
+                resend_previous_waveform = False
+
+            need_finalize = False
 
     if save_debug_wav:
         print("Saving debug output...")
@@ -438,6 +424,36 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
     print("Done, will exit now.")
 
 
+def advance_mic_decoding(adaptation_state, asr, asr_client, block, chunks_decoded, feat_info, feat_pipeline, key, last_chunk, part, prev_num_frames_decoded,
+                         samp_freq, sil_weighting, speaker, utt):
+    need_endpoint_finalize = False
+    chunks_decoded += 1
+    feat_pipeline.accept_waveform(samp_freq, Vector(block))
+    if last_chunk:
+        feat_pipeline.input_finished()
+    if sil_weighting.active():
+        sil_weighting.compute_current_traceback(asr.decoder)
+        feat_pipeline.ivector_feature().update_frame_weights(
+            sil_weighting.get_delta_weights(
+                feat_pipeline.num_frames_ready()))
+    asr.advance_decoding()
+    num_frames_decoded = asr.decoder.num_frames_decoded()
+    if not last_chunk:
+        if asr.endpoint_detected():
+            if num_frames_decoded > 0:
+                need_endpoint_finalize = True
+                prev_num_frames_decoded = 0
+        elif num_frames_decoded > prev_num_frames_decoded:
+            prev_num_frames_decoded = num_frames_decoded
+            out = asr.get_partial_output()
+            print(key + "-utt%d-part%d" % (utt, part),
+                  out["text"], flush=True)
+            if asr_client is not None:
+                asr_client.partialUtterance(utterance=out["text"], key=key + "-utt%d-part%d" % (utt, part), speaker=speaker)
+            part += 1
+    return need_endpoint_finalize, prev_num_frames_decoded, part, utt
+
+
 def initNnetFeatPipeline(adaptation_state, asr, decodable_opts, feat_info):
     feat_pipeline = OnlineNnetFeaturePipeline(feat_info)
     feat_pipeline.set_adaptation_state(adaptation_state)
@@ -449,7 +465,7 @@ def initNnetFeatPipeline(adaptation_state, asr, decodable_opts, feat_info):
     return feat_pipeline, sil_weighting
 
 
-def finalize_decode(asr, asr_client, feat_pipeline, feat_info, adaptation_state, key, part, speaker, utt, do_reinitialze_asr=True):
+def finalize_decode(asr, asr_client, key, part, speaker, utt):
     asr.finalize_decoding()
     out = asr.get_output()
     mbr = MinimumBayesRisk(out["lattice"])
@@ -459,17 +475,20 @@ def finalize_decode(asr, asr_client, feat_pipeline, feat_info, adaptation_state,
     if asr_client is not None:
         asr_client.completeUtterance(utterance=out["text"], key=key + "-utt%d-part%d" % (utt, part), confidences=confd, speaker=speaker)
 
-    if do_reinitialze_asr:
-        feat_pipeline.get_adaptation_state(adaptation_state)
-        feat_pipeline = OnlineNnetFeaturePipeline(feat_info)
-        feat_pipeline.set_adaptation_state(adaptation_state)
-        asr.set_input_pipeline(feat_pipeline)
-        asr.init_decoding()
-        sil_weighting = OnlineSilenceWeighting(
-            asr.transition_model, feat_info.silence_weighting_config,
-            decodable_opts.frame_subsampling_factor)
+    return out, confd
 
-    return out, confd, feat_pipeline, sil_weighting
+
+def reinitialize_asr(adaptation_state, asr, feat_info, feat_pipeline):
+    feat_pipeline.get_adaptation_state(adaptation_state)
+    feat_pipeline = OnlineNnetFeaturePipeline(feat_info)
+    feat_pipeline.set_adaptation_state(adaptation_state)
+    asr.set_input_pipeline(feat_pipeline)
+    asr.init_decoding()
+    sil_weighting = OnlineSilenceWeighting(
+        asr.transition_model, feat_info.silence_weighting_config,
+        decodable_opts.frame_subsampling_factor)
+    return feat_pipeline, sil_weighting
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Starts a Kaldi nnet3 decoder')
