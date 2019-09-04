@@ -68,6 +68,12 @@ def shutdown():
     print("shutdown called")
     return 'OK'
 
+@app.route('/status')
+def status():
+    red.publish(decode_control_channel, 'status')
+    print("status called")
+    return 'OK'
+
 #Event stream end point for the browser, connection is left open. Must be used with threaded Flask.
 @app.route('/stream')
 def stream():
