@@ -279,7 +279,7 @@ def print_devices(paudio):
 
 
 def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, input_microphone_id, channels=1,
-                                           samp_freq=16000, record_samplerate=16000, chunk_size=1024, wait_for_start_command=False, compute_confidences=True, asr_client=None, speaker="Speaker",
+                                           samp_freq=16000, record_samplerate=16000, chunk_size=1024, wait_for_start_command=False, compute_confidences=True, asr_client=None, speaker_str="Speaker",
                                            resample_algorithm="sinc_best", save_debug_wav=False, use_threads=False):
     p = red.pubsub()
     p.subscribe(decode_control_channel)
@@ -298,6 +298,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
     feat_pipeline, sil_weighting = initNnetFeatPipeline(adaptation_state, asr, decodable_opts, feat_info)
     print("Done")
 
+    speaker = speaker_str.replace("#c#", "0")
     last_chunk = False
     utt, part = 1, 1
     prev_num_frames_decoded, offset_complete = 0, 0
@@ -393,10 +394,30 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
 
                 need_finalize = False
 
-            #block = np.reshape(block, (-1, channels))
+            if channels > 1:
+                block = np.reshape(block, (-1, channels))
 
-            volume_norm = np.linalg.norm(npblock / 65536.0) * 10.0
-            #print("|" * int(volume_norm))
+                # select loudest channel
+                volume_norms = []
+                for i in range(channels):
+                    volume_norms.append(np.linalg.norm(block[:, i] / 65536.0) * 10.0)
+                    #print("|" * int(volume_norm))
+
+                #print(volume_norms)
+
+                volume_norm = max(volume_norms)
+                max_channel = volume_norms.index(volume_norm)
+                block = block[:, max_channel]
+
+                new_speaker = speaker_str.replace("#c#", str(max_channel))
+
+                if new_speaker != speaker:
+                    print("Speaker change!")
+
+                speaker = new_speaker
+            else:
+                volume_norm = np.linalg.norm(block / 65536.0) * 10.0
+
 
             num_chunks += 1
 
@@ -517,7 +538,7 @@ if __name__ == '__main__':
     parser.add_argument('-wait', '--wait-for-start-command', dest='wait_for_start_command', help='Do not start decoding directly, wait for a start command from the redis control channel.',
                         action='store_true', default=False)
 
-    parser.add_argument('-s', '--speaker-name', dest='speaker_name', help='Name of the speaker', type=str, default='speaker')
+    parser.add_argument('-s', '--speaker-name', dest='speaker_name', help='Name of the speaker, use #c# for channel', type=str, default='speaker#c#')
     parser.add_argument('-cs', '--chunk_size', dest='chunk_size', help='Default buffer size for the microphone buffer.', type=int, default=1024)
 
     parser.add_argument('-bs', '--beam_size', dest='beam_size', help='Beam size of the decoding beam. Defaults to 10.', type=int, default=10)
@@ -563,7 +584,7 @@ if __name__ == '__main__':
         else:
             paudio = pyaudio.PyAudio()
             decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, asr_client=asr_client,
-                                                   input_microphone_id=args.micid, speaker=args.speaker_name,
+                                                   input_microphone_id=args.micid, speaker_str=args.speaker_name,
                                                    samp_freq=args.decode_samplerate, record_samplerate=args.record_samplerate,
-                                                   chunk_size=args.chunk_size, wait_for_start_command=args.wait_for_start_command,
+                                                   chunk_size=args.chunk_size, wait_for_start_command=args.wait_for_start_command, channels=args.channels,
                                                    resample_algorithm=args.resample_algorithm, save_debug_wav=args.save_debug_wav, use_threads=args.use_threads)
