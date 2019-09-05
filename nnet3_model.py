@@ -56,6 +56,8 @@ import argparse
 
 import scipy.io.wavfile as wavefile
 
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+
 red = redis.StrictRedis()
 decode_control_channel = 'asr_control'
 
@@ -103,7 +105,7 @@ class ASRRedisClient():
         data = {'handle': 'status', 'time': float(self.timer.current_secs()), 'isDecoding': isDecoding, 'shutdown': shutdown}
         red.publish(self.channel, json.dumps(data))
 
-def load_model(config_file, online_config, models_path='models/'):
+def load_model(config_file, online_config, models_path='models/', beam_size=10, frames_per_chunk=50):
     # Read YAML file
     with open(config_file, 'r') as stream:
         model_yaml = yaml.safe_load(stream)
@@ -133,13 +135,12 @@ def load_model(config_file, online_config, models_path='models/'):
 
     # Construct recognizer
     decoder_opts = LatticeFasterDecoderOptions()
-    decoder_opts.beam = 13
-    decoder_opts.beam = 10
+    decoder_opts.beam = beam_size
     decoder_opts.max_active = 7000
     decodable_opts = NnetSimpleLoopedComputationOptions()
     decodable_opts.acoustic_scale = 1.0
     decodable_opts.frame_subsampling_factor = 3
-    decodable_opts.frames_per_chunk = 20 #150
+    decodable_opts.frames_per_chunk = frames_per_chunk
     asr = NnetLatticeFasterOnlineRecognizer.from_files(
         models_path + decoder_yaml_opts["model"], models_path + decoder_yaml_opts["fst"],
         models_path + decoder_yaml_opts["word-syms"],
@@ -278,8 +279,8 @@ def print_devices(paudio):
 
 
 def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, input_microphone_id, channels=1,
-                                           samp_freq=16000, record_samplerate=16000, chunk_size=1024, wait_for_start_command=False , compute_confidences=True, asr_client=None, speaker="Speaker",
-                                           resample_algorithm="sinc_best", save_debug_wav=False):
+                                           samp_freq=16000, record_samplerate=16000, chunk_size=1024, wait_for_start_command=False, compute_confidences=True, asr_client=None, speaker="Speaker",
+                                           resample_algorithm="sinc_best", save_debug_wav=False, use_threads=False):
     p = red.pubsub()
     p.subscribe(decode_control_channel)
 
@@ -295,7 +296,8 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
     adaptation_state = OnlineIvectorExtractorAdaptationState.from_info(feat_info.ivector_extractor_info)
     key = 'mic' + str(input_microphone_id)
     feat_pipeline, sil_weighting = initNnetFeatPipeline(adaptation_state, asr, decodable_opts, feat_info)
-    #data = wav.data()[0]
+    print("Done")
+
     last_chunk = False
     utt, part = 1, 1
     prev_num_frames_decoded, offset_complete = 0, 0
@@ -311,98 +313,112 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
 
     do_decode = not wait_for_start_command
     need_finalize = False
+    block, previous_block = None, None
+    decode_future = None
 
     asr_client.asr_ready(speaker=speaker)
 
-    while not last_chunk:
-    #for a in range(500):
-        #if i + chunk_size >= len(data):
-        #    last_chunk = True
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        while not last_chunk:
+            # check if there is a message from the redis server first
+            msg = p.get_message()
 
-        msg = p.get_message()
+            # We check of there are externally send control commands
+            if msg is not None:
+                print('msg:', msg)
+                if msg['data'] == b"start":
+                    print('Start command received!')
+                    do_decode = True
+                    asr_client.sendstatus(isDecoding=do_decode)
 
-        # We check of there are externally send control commands
-        if msg is not None:
-            print('msg:', msg)
-            if msg['data'] == b"start":
-                print('Start command received!')
-                do_decode = True
-                asr_client.sendstatus(isDecoding=do_decode)
+                elif msg['data'] == b"stop":
+                    print('Stop command received!')
+                    if do_decode:
+                        need_finalize = True
+                    do_decode = False
+                    asr_client.sendstatus(isDecoding=do_decode)
 
-            elif msg['data'] == b"stop":
-                print('Stop command received!')
-                if do_decode:
+                elif msg['data'] == b"shutdown":
+                    print('Shutdown command received!')
+                    last_chunk = True
+
+                elif msg['data'] == b"status":
+                    print('Status command received!')
+                    asr_client.sendstatus(isDecoding=do_decode)
+
+            # We always consume from the microphone stream, even if we do not decode
+            block_raw = stream.read(chunk_size, exception_on_overflow=False)
+            npblock = np.frombuffer(block_raw, dtype=np.int16)
+
+            if need_resample:
+                block = resampler.process(np.array(npblock, copy=True), ratio)
+                block = np.array(block, dtype=np.int16)
+            else:
+                block = npblock
+
+            if save_debug_wav:
+                blocks.append(block)
+                rawblocks.append(npblock)
+
+            # block on the result of the decode if one is pending
+            if use_threads and do_decode and block is not None and decode_future is not None:
+                need_endpoint_finalize, prev_num_frames_decoded, part, utt = decode_future.result()
+
+                if need_endpoint_finalize:
                     need_finalize = True
-                do_decode = False
+                    resend_previous_waveform = True
+
+            # finalize the decoding here. We might need to finalize if we switch from do_decode=True to do_decode=False
+            # that is why this is outside of that block
+            if need_finalize and block is not None:
+                out, confd = finalize_decode(asr, asr_client, key,
+                                             part, speaker, utt)
+                feat_pipeline, sil_weighting = reinitialize_asr(adaptation_state, asr, feat_info, feat_pipeline)
+                utt += 1
+                part = 1
+
+                if resend_previous_waveform and previous_block is not None:
+                    # offset_complete += int(num_frames_decoded
+                    #              * decodable_opts.frame_subsampling_factor
+                    #              * feat_pipeline.frame_shift_in_seconds()
+                    #              * samp_freq)
+                    # print("offset_complete:", offset_complete)
+                    # offset = offset_complete - (chunks_read*chunk_size)
+                    # print("offset:", offset_complete)
+                    # remainder = block[offset:]
+
+                    # we simplify the above and always resend the last block for the new utterance
+                    feat_pipeline.accept_waveform(samp_freq, Vector(previous_block))
+                    resend_previous_waveform = False
+
+                need_finalize = False
+
+            #block = np.reshape(block, (-1, channels))
+
+            volume_norm = np.linalg.norm(npblock / 65536.0) * 10.0
+            #print("|" * int(volume_norm))
+
+            num_chunks += 1
+
+            # send status beacon periodically
+            if num_chunks % 50 == 0:
                 asr_client.sendstatus(isDecoding=do_decode)
 
-            elif msg['data'] == b"shutdown":
-                print('Shutdown command received!')
-                last_chunk = True
+            if do_decode:
+                if not use_threads:
+                    need_endpoint_finalize, prev_num_frames_decoded, part, utt = advance_mic_decoding(adaptation_state, asr, asr_client, block, chunks_decoded, feat_info, feat_pipeline, key, last_chunk,
+                                                                part, prev_num_frames_decoded, samp_freq, sil_weighting, speaker, utt)
+                    if need_endpoint_finalize:
+                        need_finalize = True
+                        resend_previous_waveform = True
+                else:
+                    #submit a non blocking computation
+                    decode_future = executor.submit(advance_mic_decoding, adaptation_state, asr, asr_client, block, chunks_decoded, feat_info, feat_pipeline, key, last_chunk,
+                                                                part, prev_num_frames_decoded, samp_freq, sil_weighting, speaker, utt)
+            else:
+                time.sleep(0.001)
 
-            elif msg['data'] == b"status":
-                print('Status command received!')
-                asr_client.sendstatus(isDecoding=do_decode)
-
-        # We always consume from the microphone stream, even if we do not decode
-        block_raw = stream.read(chunk_size, exception_on_overflow=False)
-        npblock = np.frombuffer(block_raw, dtype=np.int16)
-
-        if need_resample:
-            block = resampler.process(np.array(npblock, copy=True), ratio)
-            block = np.array(block, dtype=np.int16)
-        else:
-            block = npblock
-
-        if save_debug_wav:
-            blocks.append(block)
-            rawblocks.append(npblock)
-
-        #block = np.reshape(block, (-1, channels))
-
-        volume_norm = np.linalg.norm(npblock / 65536.0) * 10.0
-        #print("|" * int(volume_norm))
-
-        num_chunks += 1
-
-        # send status periodically
-        if num_chunks % 50 == 0:
-            asr_client.sendstatus(isDecoding=do_decode)
-
-        if do_decode:
-            need_endpoint_finalize, prev_num_frames_decoded, part, utt = advance_mic_decoding(adaptation_state, asr, asr_client, block, chunks_decoded, feat_info, feat_pipeline, key, last_chunk,
-                                                            part, prev_num_frames_decoded, samp_freq, sil_weighting, speaker, utt)
-
-            if need_endpoint_finalize:
-                need_finalize = True
-                resend_previous_waveform = True
-        else:
-            time.sleep(0.001)
-
-        # finalize the decoding here. We might need to finalize if we switch from do_decode=True to do_decode=False
-        # that is why this is outside of that block
-        if need_finalize:
-            out, confd  = finalize_decode(asr, asr_client, key,
-                                           part, speaker, utt)
-            feat_pipeline, sil_weighting = reinitialize_asr(adaptation_state, asr, feat_info, feat_pipeline)
-            utt += 1
-            part = 1
-
-            if resend_previous_waveform:
-                # offset_complete += int(num_frames_decoded
-                #              * decodable_opts.frame_subsampling_factor
-                #              * feat_pipeline.frame_shift_in_seconds()
-                #              * samp_freq)
-                # print("offset_complete:", offset_complete)
-                # offset = offset_complete - (chunks_read*chunk_size)
-                # print("offset:", offset_complete)
-                # remainder = block[offset:]
-
-                # we simplify the above and always resend the last block for the new utterance
-                feat_pipeline.accept_waveform(samp_freq, Vector(block))
-                resend_previous_waveform = False
-
-            need_finalize = False
+            previous_block = block
 
     if save_debug_wav:
         print("Saving debug output...")
@@ -504,6 +520,10 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--speaker-name', dest='speaker_name', help='Name of the speaker', type=str, default='speaker')
     parser.add_argument('-cs', '--chunk_size', dest='chunk_size', help='Default buffer size for the microphone buffer.', type=int, default=1024)
 
+    parser.add_argument('-bs', '--beam_size', dest='beam_size', help='Beam size of the decoding beam. Defaults to 10.', type=int, default=10)
+
+    parser.add_argument('-fpc', '--frames_per_chunk', dest='frames_per_chunk', help='Frames per (decoding) chunk. This will also have an effect on latency.', type=int, default=30)
+
     parser.add_argument('-red', '--redis-channel', dest='redis_channel', help='Name of the channel (for redis-server)', type=str, default='asr')
     parser.add_argument('-y', '--yaml-config', dest='yaml_config', help='Path to the yaml model config', type=str, default='models/kaldi_tuda_de_nnet3_chain2.yaml')
     parser.add_argument('-o', '--online-config', dest='online_config', help='Path to the Kaldi online config. If not available, will try to read the parameters from the yaml'
@@ -516,6 +536,9 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--resample_algorithm', dest='resample_algorithm', help="One of the following: linear, sinc_best, sinc_fastest,"
                                                                                       " sinc_medium, zero_order_hold (default: sinc_best)",
                                                                                       type=str, default="sinc_best")
+
+    parser.add_argument('-t', '--use-threads', dest='use_threads', help='Use a thread worker for realtime decoding',
+                        action='store_true', default=False)
 
     parser.add_argument('-w', '--save_debug_wav', dest='save_debug_wav', help='This will write out a debug.wav (resampled)'
                                                                               ' and debugraw.wav (original) after decoding,'
@@ -530,7 +553,7 @@ if __name__ == '__main__':
     else:
         asr_client = ASRRedisClient(channel=args.redis_channel)
         asr_client.asr_loading(speaker=args.speaker_name)
-        asr, feat_info, decodable_opts = load_model(args.yaml_config, args.online_config)
+        asr, feat_info, decodable_opts = load_model(args.yaml_config, args.online_config, beam_size=args.beam_size, frames_per_chunk=args.frames_per_chunk)
         if args.micid == -1:
             print("Reading from wav scp:", args.input)
             asr_client.asr_ready(speaker=args.speaker_name)
@@ -543,4 +566,4 @@ if __name__ == '__main__':
                                                    input_microphone_id=args.micid, speaker=args.speaker_name,
                                                    samp_freq=args.decode_samplerate, record_samplerate=args.record_samplerate,
                                                    chunk_size=args.chunk_size, wait_for_start_command=args.wait_for_start_command,
-                                                   resample_algorithm=args.resample_algorithm, save_debug_wav=args.save_debug_wav)
+                                                   resample_algorithm=args.resample_algorithm, save_debug_wav=args.save_debug_wav, use_threads=args.use_threads)
