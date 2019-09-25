@@ -369,7 +369,8 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
             if use_threads and do_decode and block is not None and decode_future is not None:
                 need_endpoint_finalize, prev_num_frames_decoded, part, utt = decode_future.result()
 
-                if need_endpoint_finalize:
+                # check if we need to finalize, disallow endpoint without a single decoded frame
+                if need_endpoint_finalize and prev_num_frames_decoded > 0:
                     need_finalize = True
                     resend_previous_waveform = True
 
@@ -433,7 +434,8 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
                 if not use_threads:
                     need_endpoint_finalize, prev_num_frames_decoded, part, utt = advance_mic_decoding(adaptation_state, asr, asr_client, block, chunks_decoded, feat_info, feat_pipeline, key, last_chunk,
                                                                 part, prev_num_frames_decoded, samp_freq, sil_weighting, speaker, utt)
-                    if need_endpoint_finalize:
+                    # check if we need to finalize, disallow endpoint without a single decoded frame
+                    if need_endpoint_finalize and prev_num_frames_decoded > 0:
                         need_finalize = True
                         resend_previous_waveform = True
                 else:
