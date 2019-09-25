@@ -334,7 +334,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
 
                 elif msg['data'] == b"stop":
                     print('Stop command received!')
-                    if do_decode:
+                    if do_decode and prev_num_frames_decoded > 0:
                         need_finalize = True
                     do_decode = False
                     asr_client.sendstatus(isDecoding=do_decode)
@@ -347,7 +347,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
                     print('Status command received!')
                     asr_client.sendstatus(isDecoding=do_decode)
 
-                elif msg['data'] == b"reset_time":
+                elif msg['data'] == b"reset_timer":
                     print('Reset time command received!')
                     asr_client.resetTimer()
 
@@ -373,10 +373,15 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
                 if need_endpoint_finalize and prev_num_frames_decoded > 0:
                     need_finalize = True
                     resend_previous_waveform = True
+                    print("prev_num_frames_decoded:", prev_num_frames_decoded)
+
+                if need_endpoint_finalize and prev_num_frames_decoded == 0:
+                    print("WARN need_endpoint_finalize and prev_num_frames_decoded == 0")
 
             # finalize the decoding here. We might need to finalize if we switch from do_decode=True to do_decode=False
             # that is why this is outside of that block
-            if need_finalize and block is not None:
+            if need_finalize and block is not None and prev_num_frames_decoded > 0:
+                print("prev_num_frames_decoded:",prev_num_frames_decoded)
                 out, confd = finalize_decode(asr, asr_client, key,
                                              part, speaker, utt)
                 feat_pipeline, sil_weighting = reinitialize_asr(adaptation_state, asr, feat_info, feat_pipeline)
@@ -398,6 +403,8 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
                     resend_previous_waveform = False
 
                 need_finalize = False
+
+                prev_num_frames_decoded = 0
 
             if channels > 1:
                 block = np.reshape(block, (-1, channels))
@@ -423,6 +430,8 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
 
                     need_finalize = True
                     resend_previous_waveform = True
+
+                    #prev_num_frames_decoded = 0
             else:
                 volume_norm = np.linalg.norm(block / 65536.0) * 10.0
 
@@ -441,6 +450,8 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
                     if need_endpoint_finalize and prev_num_frames_decoded > 0:
                         need_finalize = True
                         resend_previous_waveform = True
+                        print("prev_num_frames_decoded:", prev_num_frames_decoded)
+
                 else:
                     #submit a non blocking computation
                     decode_future = executor.submit(advance_mic_decoding, adaptation_state, asr, asr_client, block, chunks_decoded, feat_info, feat_pipeline, key, last_chunk,
@@ -488,16 +499,16 @@ def advance_mic_decoding(adaptation_state, asr, asr_client, block, chunks_decode
         if asr.endpoint_detected():
             if num_frames_decoded > 0:
                 need_endpoint_finalize = True
-                prev_num_frames_decoded = 0
+            #    prev_num_frames_decoded = 0
         elif num_frames_decoded > prev_num_frames_decoded:
-            prev_num_frames_decoded = num_frames_decoded
+            #
             out = asr.get_partial_output()
             print(key + "-utt%d-part%d" % (utt, part),
                   out["text"], flush=True)
             if asr_client is not None:
                 asr_client.partialUtterance(utterance=out["text"], key=key + "-utt%d-part%d" % (utt, part), speaker=speaker)
             part += 1
-    return need_endpoint_finalize, prev_num_frames_decoded, part, utt
+    return need_endpoint_finalize, num_frames_decoded, part, utt
 
 
 def initNnetFeatPipeline(adaptation_state, asr, decodable_opts, feat_info):
