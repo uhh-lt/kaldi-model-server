@@ -74,9 +74,9 @@ def status():
     print("status called")
     return 'OK'
 
-@app.route('/reset_time')
-def reset_time():
-    red.publish(decode_control_channel, 'reset_time')
+@app.route('/reset_timer')
+def reset_timer():
+    red.publish(decode_control_channel, 'reset_timer')
     print("reset time called")
     return 'OK'
 
