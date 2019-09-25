@@ -347,6 +347,10 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
                     print('Status command received!')
                     asr_client.sendstatus(isDecoding=do_decode)
 
+                elif msg['data'] == b"reset_time":
+                    print('Reset time command received!')
+                    asr_client.resetTimer()
+
             # We always consume from the microphone stream, even if we do not decode
             block_raw = stream.read(chunk_size, exception_on_overflow=False)
             npblock = np.frombuffer(block_raw, dtype=np.int16)

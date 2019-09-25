@@ -74,6 +74,12 @@ def status():
     print("status called")
     return 'OK'
 
+@app.route('/reset_time')
+def status():
+    red.publish(decode_control_channel, 'reset_time')
+    print("reset time called")
+    return 'OK'
+
 #Event stream end point for the browser, connection is left open. Must be used with threaded Flask.
 @app.route('/stream')
 def stream():
