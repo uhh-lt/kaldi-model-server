@@ -280,7 +280,7 @@ def print_devices(paudio):
 
 def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, input_microphone_id, channels=1,
                                            samp_freq=16000, record_samplerate=16000, chunk_size=1024, wait_for_start_command=False, compute_confidences=True, asr_client=None, speaker_str="Speaker",
-                                           resample_algorithm="sinc_best", save_debug_wav=False, use_threads=False):
+                                           resample_algorithm="sinc_best", save_debug_wav=False, use_threads=False, minimum_num_frames_decoded_per_speaker=5):
     p = red.pubsub()
     p.subscribe(decode_control_channel)
 
@@ -416,10 +416,13 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
 
                 new_speaker = speaker_str.replace("#c#", str(max_channel))
 
-                if new_speaker != speaker:
-                    print("Speaker change!")
+                if new_speaker != speaker and prev_num_frames_decoded >= minimum_num_frames_decoded_per_speaker:
+                    print("Speaker change! Number of frames decoded for previous speaker:", str(prev_num_frames_decoded))
 
-                speaker = new_speaker
+                    speaker = new_speaker
+
+                    need_finalize = True
+                    resend_previous_waveform = True
             else:
                 volume_norm = np.linalg.norm(block / 65536.0) * 10.0
 
