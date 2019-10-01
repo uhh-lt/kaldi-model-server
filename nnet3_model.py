@@ -280,7 +280,7 @@ def print_devices(paudio):
 
 def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, input_microphone_id, channels=1,
                                            samp_freq=16000, record_samplerate=16000, chunk_size=1024, wait_for_start_command=False, compute_confidences=True, asr_client=None, speaker_str="Speaker",
-                                           resample_algorithm="sinc_best", save_debug_wav=False, use_threads=False, minimum_num_frames_decoded_per_speaker=5):
+                                           resample_algorithm="sinc_best", save_debug_wav=False, use_threads=False, minimum_num_frames_decoded_per_speaker=5, mic_vol_cutoff=0.5):
     p = red.pubsub()
     p.subscribe(decode_control_channel)
 
@@ -415,7 +415,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
                     volume_norms.append(np.linalg.norm(block[:, i] / 65536.0) * 10.0)
                     #print("|" * int(volume_norm))
 
-                #print(volume_norms)
+                volume_norms = [0.0 if elem < mic_vol_cutoff else elem for elem in volume_norms]
 
                 volume_norm = max(volume_norms)
                 max_channel = volume_norms.index(volume_norm)
@@ -423,7 +423,10 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
 
                 new_speaker = speaker_str.replace("#c#", str(max_channel))
 
-                if new_speaker != speaker and prev_num_frames_decoded >= minimum_num_frames_decoded_per_speaker:
+                print('vols:',volume_norms, 'max:',max_channel, 'value:',volume_norm)
+
+                if sum(volume_norms) > 1e-10 and new_speaker != speaker \
+                        and prev_num_frames_decoded >= minimum_num_frames_decoded_per_speaker:
                     print("Speaker change! Number of frames decoded for previous speaker:", str(prev_num_frames_decoded))
 
                     speaker = new_speaker
@@ -581,6 +584,10 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--use-threads', dest='use_threads', help='Use a thread worker for realtime decoding',
                         action='store_true', default=False)
 
+    parser.add_argument('-mf', '--minimum-num-frames-decoded-per-speaker', dest='minimum_num_frames_decoded_per_speaker',
+                        help='Minimum number of frames that need to be decoded per speaker until a speaker change can happen',
+                        type=int, default=5)
+
     parser.add_argument('-w', '--save_debug_wav', dest='save_debug_wav', help='This will write out a debug.wav (resampled)'
                                                                               ' and debugraw.wav (original) after decoding,'
                                                                               ' so that the recording quality can be analysed', action='store_true', default=False)
@@ -607,4 +614,5 @@ if __name__ == '__main__':
                                                    input_microphone_id=args.micid, speaker_str=args.speaker_name,
                                                    samp_freq=args.decode_samplerate, record_samplerate=args.record_samplerate,
                                                    chunk_size=args.chunk_size, wait_for_start_command=args.wait_for_start_command, channels=args.channels,
-                                                   resample_algorithm=args.resample_algorithm, save_debug_wav=args.save_debug_wav, use_threads=args.use_threads)
+                                                   resample_algorithm=args.resample_algorithm, save_debug_wav=args.save_debug_wav, use_threads=args.use_threads,
+                                                   minimum_num_frames_decoded_per_speaker=args.minimum_num_frames_decoded_per_speaker)
