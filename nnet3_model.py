@@ -415,6 +415,8 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
                     volume_norms.append(np.linalg.norm(block[:, i] / 65536.0) * 10.0)
                     #print("|" * int(volume_norm))
 
+                #print('vols:', volume_norms)
+
                 volume_norms = [0.0 if elem < mic_vol_cutoff else elem for elem in volume_norms]
 
                 volume_norm = max(volume_norms)
@@ -423,7 +425,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
 
                 new_speaker = speaker_str.replace("#c#", str(max_channel))
 
-                print('vols:',volume_norms, 'max:',max_channel, 'value:',volume_norm)
+                #print('vols:',volume_norms, 'max:',max_channel, 'value:',volume_norm)
 
                 if sum(volume_norms) > 1e-10 and new_speaker != speaker \
                         and prev_num_frames_decoded >= minimum_num_frames_decoded_per_speaker:
