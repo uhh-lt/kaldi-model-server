@@ -64,10 +64,31 @@ decode_control_channel = 'asr_control'
 #Do most of the message passing with redis, now standard version
 class ASRRedisClient():
 
-    def __init__(self, channel='asr'):
+    def __init__(self, channel='asr', record_message_history=False):
         self.channel = channel
         self.timer_started = False
         self.timer = Timer()
+        self.record_message_history = record_message_history
+        self.last_message_time = 0.0
+
+        # if record_message_history= True, we store a program in self.message_trace that when
+        # executed replays all messages into the asr channel
+
+        self.message_trace = 'import time\n' \
+                             'import json\n' \
+                             'import redis\n\n' \
+                             'red = redis.StrictRedis()\n' \
+                             'asr_channel = "asr"\n\n'
+
+    def publish(self, data):
+        json_dumps_data = json.dumps(data)
+        red.publish(self.channel, json_dumps_data)
+        cur_time = float(self.timer.current_secs())
+        delta = cur_time - self.last_message_time
+        self.last_message_time = cur_time
+        if self.record_message_history:
+            self.message_trace += 'time.sleep(%f)\n' % delta
+            self.message_trace += 'red.publish(self.channel, json.dumps('+json_dumps_data+'))\n'
 
     def checkTimer(self):
         if not self.timer_started:
@@ -82,23 +103,23 @@ class ASRRedisClient():
         self.checkTimer()
         data = {'handle': 'partialUtterance', 'utterance': utterance, 'key': key,
                 'speaker': speaker, 'time': float(self.timer.current_secs())}
-        red.publish(self.channel, json.dumps(data))
+        self.publish(data)
 
     def completeUtterance(self, utterance, confidences, key='none', speaker='Speaker'):
         self.checkTimer()
         data = {'handle': 'completeUtterance', 'utterance': utterance, 'confidences': confidences,
                 'key': key, 'speaker': speaker, 'time': float(self.timer.current_secs())}
-        red.publish(self.channel, json.dumps(data))
+        self.publish(data)
 
     def asr_loading(self, speaker):
         self.checkTimer()
         data = {'handle': 'asr_loading', 'time': float(self.timer.current_secs()), 'speaker': speaker}
-        red.publish(self.channel, json.dumps(data))
+        self.publish(data)
 
     def asr_ready(self, speaker):
         self.checkTimer()
         data = {'handle': 'asr_ready', 'time': float(self.timer.current_secs()), 'speaker': speaker}
-        red.publish(self.channel, json.dumps(data))
+        self.publish(data)
 
     def sendstatus(self, isDecoding, shutdown=False):
         self.checkTimer()
@@ -279,7 +300,7 @@ def print_devices(paudio):
 
 
 def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, input_microphone_id, channels=1,
-                                           samp_freq=16000, record_samplerate=16000, chunk_size=1024, wait_for_start_command=False, compute_confidences=True, asr_client=None, speaker_str="Speaker",
+                                           samp_freq=16000, record_samplerate=16000, chunk_size=1024, wait_for_start_command=False, record_message_history=False, compute_confidences=True, asr_client=None, speaker_str="Speaker",
                                            resample_algorithm="sinc_best", save_debug_wav=False, use_threads=False, minimum_num_frames_decoded_per_speaker=5, mic_vol_cutoff=0.5):
     p = red.pubsub()
     p.subscribe(decode_control_channel)
@@ -317,7 +338,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
     block, previous_block = None, None
     decode_future = None
 
-    asr_client.asr_ready(speaker=speaker)
+    asr_client.asr_ready(speaker=speaker, record_message_history=record_message_history)
 
     with ThreadPoolExecutor(max_workers=1) as executor:
         while not last_chunk:
@@ -466,6 +487,12 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
 
             previous_block = block
 
+    if record_message_history:
+        with open('message_history_replay.py') as message_history_out:
+            message_history_out.write(asr_client.message_trace)
+    else:
+        print("Not writing record message history since --record_message_history is not set.")
+
     if save_debug_wav:
         print("Saving debug output...")
         wavefile.write("debug.wav", samp_freq, np.concatenate(blocks, axis=None))
@@ -563,6 +590,9 @@ if __name__ == '__main__':
     parser.add_argument('-wait', '--wait-for-start-command', dest='wait_for_start_command', help='Do not start decoding directly, wait for a start command from the redis control channel.',
                         action='store_true', default=False)
 
+    parser.add_argument('-hist', '--record-message-history', dest='record_message_history', help='Record message history as a new Python program, useful for debugging and message replay.',
+                        action='store_true', default=False)
+
     parser.add_argument('-s', '--speaker-name', dest='speaker_name', help='Name of the speaker, use #c# for channel', type=str, default='speaker#c#')
     parser.add_argument('-cs', '--chunk_size', dest='chunk_size', help='Default buffer size for the microphone buffer.', type=int, default=1024)
 
@@ -615,6 +645,7 @@ if __name__ == '__main__':
             decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, asr_client=asr_client,
                                                    input_microphone_id=args.micid, speaker_str=args.speaker_name,
                                                    samp_freq=args.decode_samplerate, record_samplerate=args.record_samplerate,
-                                                   chunk_size=args.chunk_size, wait_for_start_command=args.wait_for_start_command, channels=args.channels,
+                                                   chunk_size=args.chunk_size, wait_for_start_command=args.wait_for_start_command,
+                                                   record_message_history=args.record_message_history, channels=args.channels,
                                                    resample_algorithm=args.resample_algorithm, save_debug_wav=args.save_debug_wav, use_threads=args.use_threads,
                                                    minimum_num_frames_decoded_per_speaker=args.minimum_num_frames_decoded_per_speaker)
