@@ -78,6 +78,7 @@ class ASRRedisClient():
                              'import json\n' \
                              'import redis\n\n' \
                              'red = redis.StrictRedis()\n' \
+                             'time_factor = 1.0\n' \
                              'asr_channel = "asr"\n\n'
 
     def publish(self, data):
@@ -87,8 +88,9 @@ class ASRRedisClient():
         delta = cur_time - self.last_message_time
         self.last_message_time = cur_time
         if self.record_message_history:
-            self.message_trace += 'time.sleep(%f)\n' % delta
-            self.message_trace += 'red.publish(self.channel, json.dumps('+json_dumps_data+'))\n'
+            self.message_trace += 'time.sleep(%f*time_factor)\n' % delta
+            self.message_trace += 'red.publish(asr_channel, json.dumps('+json_dumps_data+'))\n'
+            self.message_trace += 'print(' + json_dumps_data + ')\n'
 
     def checkTimer(self):
         if not self.timer_started:
@@ -209,7 +211,7 @@ def decode_chunked_partial(scp):
         print(key + "-final", out["text"], flush=True)
 
 def decode_chunked_partial_endpointing(asr, feat_info, decodable_opts, scp, chunk_size=1024,
-                                       compute_confidences=True, asr_client=None, speaker="Speaker"):
+                                       compute_confidences=True, asr_client=None, speaker="Speaker", pad_confidences=True):
     # Decode (chunked + partial output + endpointing
     #         + ivector adaptation + silence weighting)
     adaptation_state = OnlineIvectorExtractorAdaptationState.from_info(
@@ -246,6 +248,17 @@ def decode_chunked_partial_endpointing(asr, feat_info, decodable_opts, scp, chun
                     out = asr.get_output()
                     mbr = MinimumBayesRisk(out["lattice"])
                     confd = mbr.get_one_best_confidences()
+                    if pad_confidences:
+                        token_length = len(out["text"].split())
+
+                        # computed confidences array is smaller than the actual token length,
+                        if len(confd) < token_length:
+                            print("WARNING: less computeted confidences than token length! Fixing this with padding!")
+                            confd = np.pad(confd, [0, token_length-len(confd)], mode='constant', constant_values=1.0)
+                        elif len(confd) > token_length:
+                            print("WARNING: more computeted confidences than token length! Fixing this with slicing!")
+                            confd = confd[:token_length]
+
                     print(confd)
                     print(key + "-utt%d-final" % utt, out["text"], flush=True)
                     if asr_client is not None:
@@ -338,7 +351,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
     block, previous_block = None, None
     decode_future = None
 
-    asr_client.asr_ready(speaker=speaker, record_message_history=record_message_history)
+    asr_client.asr_ready(speaker=speaker)
 
     with ThreadPoolExecutor(max_workers=1) as executor:
         while not last_chunk:
@@ -488,7 +501,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
             previous_block = block
 
     if record_message_history:
-        with open('message_history_replay.py') as message_history_out:
+        with open('message_history_replay.py', 'w') as message_history_out:
             message_history_out.write(asr_client.message_trace)
     else:
         print("Not writing record message history since --record_message_history is not set.")
@@ -631,7 +644,7 @@ if __name__ == '__main__':
         paudio = pyaudio.PyAudio()
         print_devices(paudio)
     else:
-        asr_client = ASRRedisClient(channel=args.redis_channel)
+        asr_client = ASRRedisClient(channel=args.redis_channel, record_message_history=args.record_message_history)
         asr_client.asr_loading(speaker=args.speaker_name)
         asr, feat_info, decodable_opts = load_model(args.yaml_config, args.online_config, beam_size=args.beam_size, frames_per_chunk=args.frames_per_chunk)
         if args.micid == -1:
