@@ -1,0 +1,82 @@
+######
+##
+# 1) start: docker-compose -f docker-compose-dev.yml up -d <services>
+# 2) attach: docker attach ...
+# 3) detach: detach with <CTRL-p> <CTRL-q>
+# 4) stop: docker-compose -f docker-compose-dev.yml down
+#
+#  docker exec -t kamose sh download_example_models.sh
+#  docker exec kamose sed -i 's/=de_400k_nnet3chain_tdnn1f_2048_sp_bi\//=models\/de_400k_nnet3chain_tdnn1f_2048_sp_bi\//g' models/de_400k_nnet3chain_tdnn1f_2048_sp_bi/ivector_extractor/ivector_extractor.conf
+#  docker cp start_model.sh kamose:/projects/kaldi-model-server
+#
+#  python nnet3_model.py -l
+#  python nnet3_model.py -m 7 -c 1 -t -mf 5 -r 44100 --yaml-config models/kaldi_tuda_de_nnet3_chain2.yaml
+#
+#  arecord -l
+#  arecord -L
+#  arecord -f S32_LE -r 32000 -D plughw:2,0 -d 5 -c 2 models/arecord-test.wav
+##
+######
+version: '2.3'
+
+networks:
+  anet:
+
+services:
+
+  # BEGIN: kaldi-model-server
+  kamose:
+    image: remstef/kaldi-model-server-experimental:0.0.1
+    container_name: kamose
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    volumes:
+      - ${PWD}/models:/projects/kaldi-model-server/models
+    ports:
+      - 5000:5000
+    networks:
+      - anet
+    stdin_open: true
+    tty: true
+    working_dir: /projects/kaldi-model-server/
+    entrypoint: sh entrypoint.sh -m 7 -c 1 -t -mf 5 -r 44100 --yaml-config models/kaldi_tuda_de_nnet3_chain2.yaml
+    devices:
+      - /dev/snd:/dev/snd
+  # END: kaldi-model-server
+
+  # BEGIN: FRONTEND
+  frontend:
+    image: bigabig/mbot-frontend:latest
+    ports:
+      - 8080:8080
+    networks:
+      - anet
+  # END: FRONTEND
+
+  # BEGIN: KEYWORDS
+  keywords:
+    image: bigabig/mbot-keyterms:latest
+    ports:
+      - 8888:8080
+    networks:
+      - anet
+  # END: KEYWORDS
+
+  # BEGIN: NER
+  ner:
+    image: bigabig/mbot-ner:latest
+    ports:
+      - 9000:9000
+    networks:
+      - anet
+  # END: NER
+
+  # BEGIN: TEXTRANK
+  textrank:
+    image: bigabig/mbot-textrank:latest
+    ports:
+      - 9001:5000
+    networks:
+      - anet
+  # END: TEXTRANK
