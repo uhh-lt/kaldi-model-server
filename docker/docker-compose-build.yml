@@ -1,0 +1,53 @@
+######
+##
+#
+# docker run --rm --device /dev/snd:/dev/snd -ti -v ${PWD}/models:/projects/kaldi-model-server/models --entrypoint bash uhhlt/kaldi-model-server:latest
+#
+# docker exec -ti kamose bash
+#
+#   $/projects/kaldi-model-server/> sh entrypoint.sh
+#
+#   $> asr -l
+#   $> asr -m 7 -c 1 -t -mf 5 -r 44100 --yaml-config models/kaldi_tuda_de_nnet3_chain2.yaml
+#
+#   $/projects/kaldi-model-server/> python nnet3_model.py -l
+#   $/projects/kaldi-model-server/> python nnet3_model.py -m 7 -c 1 -t -mf 5 -r 44100 --yaml-config models/kaldi_tuda_de_nnet3_chain2.yaml
+#
+#   $> arecord -l
+#   $> arecord -L
+#   $> arecord -f S32_LE -r 32000 -D plughw:2,0 -d 5 -c 2 /projects/kaldi-model-server/models/arecord-test.wav
+#
+# docker exec kamose asr -l
+# docker exec kamose asr -m 7 -c 1 -t -mf 5 -r 44100
+# docker exec kamose asr -m 7 -c 1 -t -mf 5 -r 44100 --wait --yaml-config models/kaldi_tuda_de_nnet3_chain2.yaml
+# docker exec kamose python nnet3_model.py -m 7 -c 1 -t -mf 5 -r 44100 --yaml-config models/kaldi_tuda_de_nnet3_chain2.yaml
+#
+##
+######
+version: '2.3'
+
+networks:
+  anet:
+
+services:
+
+  # BEGIN: kaldi-model-server
+  kamose:
+    image: uhhlt/kaldi-model-server:latest
+    container_name: kamose
+    build:
+      context: ./
+      dockerfile: Dockerfile
+      args:
+        PYKALDI_COMMIT: 249963c2cb57d92c0027bb958280dcf8e408462a
+        KALDIMODELSERVER_COMMIT: 7ada422a77d924d8f39dad6945406fd31d82bfd2
+    volumes:
+      - ${PWD}/models:/projects/kaldi-model-server/models
+    ports:
+      - 5000:5000
+    networks:
+      - anet
+    working_dir: /projects/kaldi-model-server/
+    devices:
+      - /dev/snd:/dev/snd
+  # END: kaldi-model-server

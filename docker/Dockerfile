@@ -38,9 +38,9 @@ RUN mkdir -p /projects
 
 WORKDIR /projects
 
-RUN git clone https://github.com/pykaldi/pykaldi && cd pykaldi && git checkout 249963c2cb57d92c0027bb958280dcf8e408462a && cd ..
+ARG PYKALDI_COMMIT=249963c2cb57d92c0027bb958280dcf8e408462a
 
-RUN git clone https://github.com/uhh-lt/kaldi-model-server && cd kaldi-model-server && git checkout 08b11a1955b3307d06e3a443e2cdbb88916f1229 && cd ..
+RUN git clone https://github.com/pykaldi/pykaldi && cd pykaldi && git checkout $PYKALDI_COMMIT && cd ..
 
 RUN cd /projects/pykaldi/tools/ \
   && ./check_dependencies.sh \
@@ -58,6 +58,10 @@ RUN cd /projects/pykaldi/tools/ \
 
 RUN cd /projects/pykaldi/ \
   && MAKE_NUM_JOBS=2 python setup.py install
+
+ARG KALDIMODELSERVER_COMMIT=7ada422a77d924d8f39dad6945406fd31d82bfd2
+
+RUN git clone https://github.com/uhh-lt/kaldi-model-server && cd kaldi-model-server && git checkout $KALDIMODELSERVER_COMMIT && cd ..
 
 WORKDIR /projects/kaldi-model-server
 
