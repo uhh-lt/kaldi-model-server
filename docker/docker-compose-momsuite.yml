@@ -1,8 +1,8 @@
 ######
 ##
-# 1) start: docker-compose up
-# 2) check audio devices: docker exec kamose asr -l
-# 3) run asr: docker exec kamose asr -m 7 -c 1 -t -mf 5 -r 44100 --wait --yaml-config models/kaldi_tuda_de_nnet3_chain2.yaml
+# 1) start: docker-compose up -d
+# 2) run asr: docker exec kamose asr --help
+# 3) check http://localhost:8080 and http://localhost:5000 and http://localhost:5000/shutdown
 ##
 ######
 version: '2.3'
