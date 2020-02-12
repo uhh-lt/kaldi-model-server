@@ -1,1 +1,29 @@
-docker-compose-momsuite.yml
+######
+##
+# 1) start: docker-compose -f docker-compose-build.yml up -d
+# 1) start manually: docker run -d --name kamose --rm --device /dev/snd:/dev/snd uhhlt/kaldi-model-server:latest
+# 2) run asr: docker exec kamose asr --help
+# 3) check http://localhost:8080 and http://localhost:5000 and http://localhost:5000/shutdown
+##
+######
+version: '2.3'
+
+networks:
+  anet:
+
+services:
+
+  # BEGIN: kaldi-model-server
+  kamose:
+    image: uhhlt/kaldi-model-server:latest
+    container_name: kamose
+    volumes:
+      - ${PWD}/models:/projects/kaldi-model-server/models
+    ports:
+      - 5000:5000
+    networks:
+      - anet
+    working_dir: /projects/kaldi-model-server/
+    devices:
+      - /dev/snd:/dev/snd
+  # END: kaldi-model-server
