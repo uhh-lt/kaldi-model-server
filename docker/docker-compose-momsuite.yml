@@ -1,6 +1,6 @@
 ######
 ##
-# 1) start: docker-compose up -d
+# 1) start: docker-compose -f docker-compose-momsuite.yml up -d
 # 2) run asr: docker exec kamose asr --help
 # 3) check http://localhost:8080 and http://localhost:5000 and http://localhost:5000/shutdown
 ##
