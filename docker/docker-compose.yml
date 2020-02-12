@@ -1,7 +1,7 @@
 ######
 ##
 # 1) start: docker-compose -f docker-compose-build.yml up -d
-# 1) start manually: docker run -d --name kamose --rm --device /dev/snd:/dev/snd uhhlt/kaldi-model-server:latest
+# 1) start manually: docker run -d --name kamose --rm --device /dev/snd:/dev/snd -v ${PWD}/models:/projects/kaldi-model-server/models uhhlt/kaldi-model-server:latest
 # 2) run asr: docker exec kamose asr --help
 # 3) check http://localhost:8080 and http://localhost:5000 and http://localhost:5000/shutdown
 ##
