@@ -49,7 +49,7 @@ services:
   ner:
     image: bigabig/mbot-ner:latest
     ports:
-      - 9000:9000
+      - 9000:5000
     networks:
       - anet
   # END: NER
