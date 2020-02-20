@@ -1,0 +1,61 @@
+######
+##
+# 1) start: docker-compose -f docker-compose-prod.yml up -d
+# 2) attach: docker attach ...
+# 3) detach: detach with <CTRL-p> <CTRL-q>
+# 4) stop: docker-compose down
+# VISIT localhost:8080/
+##
+######
+version: '2.3'
+
+networks:
+  anet:
+
+services:
+
+  # BEGIN: FRONTEND
+  frontend:
+    image: bigabig/mbot-frontend:latest
+    container_name: frontend
+    ports:
+      - 8080:8080
+    depends_on:
+      keywords:
+        condition: service_healthy
+      spacy:
+        condition: service_healthy
+    networks:
+      - anet
+  # END: FRONTEND
+
+  # BEGIN: KEYWORDS
+  keywords:
+    image: bigabig/mbot-keyterms:latest
+    container_name: keywords
+    ports:
+      - 8888:8080
+    healthcheck:
+      test: curl 0.0.0.0:8080/healthcheck
+      interval: 60s
+      timeout: 10s
+      retries: 5
+    networks:
+      - anet
+  # END: KEYWORDS
+
+  # BEGIN: SPACY
+  spacy:
+    image: bigabig/mbot-spacy:latest
+    ports:
+      - 9999:9999
+    healthcheck:
+      test: curl 0.0.0.0:9999/health
+      interval: 60s
+      timeout: 5s
+      retries: 5
+    networks:
+      - anet
+    #    entrypoint: ["python", "app.py", "-l", "de"]
+    command: ["-l", "de"]
+  # END: SPACY
