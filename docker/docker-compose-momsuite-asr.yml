@@ -14,6 +14,21 @@ networks:
 
 services:
 
+  # BEGIN: kaldi-model-server
+  kamose:
+    image: uhhlt/kaldi-model-server:latest
+    container_name: kamose
+    volumes:
+      - ${PWD}/models:/projects/kaldi-model-server/models
+    ports:
+      - 5000:5000
+    networks:
+      - anet
+    working_dir: /projects/kaldi-model-server/
+    devices:
+      - /dev/snd:/dev/snd
+  # END: kaldi-model-server
+
   # BEGIN: FRONTEND
   frontend:
     image: bigabig/mbot-frontend:latest
