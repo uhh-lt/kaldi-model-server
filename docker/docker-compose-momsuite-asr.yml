@@ -31,7 +31,7 @@ services:
 
   # BEGIN: FRONTEND
   frontend:
-    image: bigabig/mbot-frontend:1.0
+    image: bigabig/mbot-frontend:1.1
     container_name: frontend
     ports:
       - 8080:8080
@@ -61,7 +61,7 @@ services:
 
   # BEGIN: SPACY
   spacy:
-    image: bigabig/mbot-spacy:latest
+    image: bigabig/mbot-spacy:1.1
     container_name: spacy
     ports:
       - 9999:9999
