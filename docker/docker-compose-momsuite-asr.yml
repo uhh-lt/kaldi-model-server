@@ -1,6 +1,6 @@
 ######
 ##
-# 1) start: docker-compose -f docker-compose-prod.yml up -d
+# 1) start: docker-compose -f docker-compose-momsuite-asr.yml up -d
 # 2) attach: docker attach ...
 # 3) detach: detach with <CTRL-p> <CTRL-q>
 # 4) stop: docker-compose down
