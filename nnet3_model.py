@@ -57,6 +57,7 @@ import argparse
 import scipy.io.wavfile as wavefile
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+import Queue
 
 red = redis.StrictRedis()
 decode_control_channel = 'asr_control'
@@ -311,13 +312,16 @@ def print_devices(paudio):
         if paudio.get_device_info_by_host_api_device_index(0,i).get('maxOutputChannels')>0:
             print("Output Device id ", i, " - ", paudio.get_device_info_by_host_api_device_index(0,i).get('name'))
 
-
+# Realtime decoding loop, uses blocking calls and interfaces a microphone directly (with pyaudio)
 def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, input_microphone_id, channels=1,
                                            samp_freq=16000, record_samplerate=16000, chunk_size=1024, wait_for_start_command=False, record_message_history=False, compute_confidences=True, asr_client=None, speaker_str="Speaker",
                                            resample_algorithm="sinc_best", save_debug_wav=False, use_threads=False, minimum_num_frames_decoded_per_speaker=5, mic_vol_cutoff=0.5):
+    
+    # Subscribe to command and control redis channel
     p = red.pubsub()
     p.subscribe(decode_control_channel)
 
+    # Figure out if we need to resample (Todo: channles does not seem to work)
     need_resample = False
     if record_samplerate != samp_freq:
         print("Activating resampler since record and decode samplerate are different:", record_samplerate, "->", samp_freq)
@@ -326,6 +330,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
         ratio = samp_freq / record_samplerate
         print("Resample ratio:", ratio)
 
+    # Initialize Python/Kaldi bridge
     print("Constructing decoding pipeline")
     adaptation_state = OnlineIvectorExtractorAdaptationState.from_info(feat_info.ivector_extractor_info)
     key = 'mic' + str(input_microphone_id)
@@ -341,6 +346,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
     blocks = []
     rawblocks = []
 
+    # Open microphone channel 
     print("Open microphone stream with id" + str(input_microphone_id) + "...")
     stream = paudio.open(format=pyaudio.paInt16, channels=channels, rate=record_samplerate, input=True,
                          frames_per_buffer=chunk_size, input_device_index=input_microphone_id)
@@ -351,11 +357,15 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
     block, previous_block = None, None
     decode_future = None
 
+    # Send event (with redis) to the front that ASR session is ready
     asr_client.asr_ready(speaker=speaker)
 
+    # Initialize a ThreadPoolExecutor. 
+    # Note that we initialize the thread executer independently of whether we actually use it later (the -t option).
+    # At the end of this loop we have two code paths, one that uses a computation future (with -t) and one without it.
     with ThreadPoolExecutor(max_workers=1) as executor:
         while not last_chunk:
-            # check if there is a message from the redis server first
+            # Check if there is a message from the redis server first (non-blocking!), if there is no new message msh is simply None.
             msg = p.get_message()
 
             # We check of there are externally send control commands
@@ -389,21 +399,25 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
             block_raw = stream.read(chunk_size, exception_on_overflow=False)
             npblock = np.frombuffer(block_raw, dtype=np.int16)
 
+            # Resample the block if necessary, e.g. 48kHz -> 16kHz
             if need_resample:
                 block = resampler.process(np.array(npblock, copy=True), ratio)
                 block = np.array(block, dtype=np.int16)
             else:
                 block = npblock
 
+            # Only save the wav, if the save_debug flag is enabled (TODO: investigate: does not seem to work with multiple channels)
             if save_debug_wav:
                 blocks.append(block)
                 rawblocks.append(npblock)
 
-            # block on the result of the decode if one is pending
+            # Block on the result of the decode if one is pending
             if use_threads and do_decode and block is not None and decode_future is not None:
+
+                # This call blocks until the result is ready
                 need_endpoint_finalize, prev_num_frames_decoded, part, utt = decode_future.result()
 
-                # check if we need to finalize, disallow endpoint without a single decoded frame
+                # Check if we need to finalize, disallow endpoint without a single decoded frame
                 if need_endpoint_finalize and prev_num_frames_decoded > 0:
                     need_finalize = True
                     resend_previous_waveform = True
@@ -412,8 +426,8 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
                 if need_endpoint_finalize and prev_num_frames_decoded == 0:
                     print("WARN need_endpoint_finalize and prev_num_frames_decoded == 0")
 
-            # finalize the decoding here. We might need to finalize if we switch from do_decode=True to do_decode=False
-            # that is why this is outside of that block
+            # Finalize the decoding here, if endpointing signalized that we should start a new utterance. 
+            # We might also need to finalize if we switch from do_decode=True to do_decode=False (user starts/stops decoding from frontend).
             if need_finalize and block is not None and prev_num_frames_decoded > 0:
                 print("prev_num_frames_decoded:",prev_num_frames_decoded)
                 out, confd = finalize_decode(asr, asr_client, key,
@@ -423,16 +437,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
                 part = 1
 
                 if resend_previous_waveform and previous_block is not None:
-                    # offset_complete += int(num_frames_decoded
-                    #              * decodable_opts.frame_subsampling_factor
-                    #              * feat_pipeline.frame_shift_in_seconds()
-                    #              * samp_freq)
-                    # print("offset_complete:", offset_complete)
-                    # offset = offset_complete - (chunks_read*chunk_size)
-                    # print("offset:", offset_complete)
-                    # remainder = block[offset:]
-
-                    # we simplify the above and always resend the last block for the new utterance
+                    # We always resend the last block for the new utterance (we only know that the endpoint is inside of a chunk, but not where exactly)
                     feat_pipeline.accept_waveform(samp_freq, Vector(previous_block))
                     resend_previous_waveform = False
 
@@ -440,12 +445,17 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
 
                 prev_num_frames_decoded = 0
 
+            # If we operate on multichannel data, select the channel here that has the highest volume 
+            # (with some added heuristic, only change the speaker if the previous speaker was active for minimum_num_frames_decoded_per_speaker many frames)
             if channels > 1:
                 block = np.reshape(block, (-1, channels))
 
-                # select loudest channel
+                # Select loudest channel
                 volume_norms = []
                 for i in range(channels):
+                    # We have a simplyfied concept of loudness, it is simply the L2 of the chunk interpreted as a vector (sqrt of the sum of squares): 
+                    # This has nothing to do with the physical loudness.
+
                     volume_norms.append(np.linalg.norm(block[:, i] / 65536.0) * 10.0)
                     #print("|" * int(volume_norm))
 
@@ -474,25 +484,25 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
             else:
                 volume_norm = np.linalg.norm(block / 65536.0) * 10.0
 
-
             num_chunks += 1
 
-            # send status beacon periodically
+            # Send status beacon periodically (to frontend, so its knows we are alive)
             if num_chunks % 50 == 0:
                 asr_client.sendstatus(isDecoding=do_decode)
 
             if do_decode:
+                # If we use the unthreaded mode, we block until the computation here in this loop
                 if not use_threads:
                     need_endpoint_finalize, prev_num_frames_decoded, part, utt = advance_mic_decoding(adaptation_state, asr, asr_client, block, chunks_decoded, feat_info, feat_pipeline, key, last_chunk,
                                                                 part, prev_num_frames_decoded, samp_freq, sil_weighting, speaker, utt)
-                    # check if we need to finalize, disallow endpoint without a single decoded frame
+                    # Check if we need to finalize, disallow endpoint without a single decoded frame
                     if need_endpoint_finalize and prev_num_frames_decoded > 0:
                         need_finalize = True
                         resend_previous_waveform = True
                         print("prev_num_frames_decoded:", prev_num_frames_decoded)
 
                 else:
-                    #submit a non blocking computation
+                    # In threaded mode, we submit a non blocking computation request to the thread executor
                     decode_future = executor.submit(advance_mic_decoding, adaptation_state, asr, asr_client, block, chunks_decoded, feat_info, feat_pipeline, key, last_chunk,
                                                                 part, prev_num_frames_decoded, samp_freq, sil_weighting, speaker, utt)
             else:
@@ -500,12 +510,14 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
 
             previous_block = block
 
+    # Record message history as an integrated Python file, that can be used as a standalone replay
     if record_message_history:
         with open('message_history_replay.py', 'w') as message_history_out:
             message_history_out.write(asr_client.message_trace)
     else:
         print("Not writing record message history since --record_message_history is not set.")
 
+    # Write debug wav as output file (will only be executed after shutdown)
     if save_debug_wav:
         print("Saving debug output...")
         wavefile.write("debug.wav", samp_freq, np.concatenate(blocks, axis=None))
@@ -513,6 +525,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
     else:
         print("Not writing debug wav output since --save_debug_wav is not set.")
 
+    # Now shuting down pipeline, compute MBR for the final utterance and complete it.
     print("Shutdown: finalizing ASR output...")
     asr.finalize_decoding()
     out = asr.get_output()
@@ -525,37 +538,53 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
         asr_client.sendstatus(isDecoding=False,shutdown=True)
     print("Done, will exit now.")
 
-
+# Advance decoding with one chunk of data
 def advance_mic_decoding(adaptation_state, asr, asr_client, block, chunks_decoded, feat_info, feat_pipeline, key, last_chunk, part, prev_num_frames_decoded,
                          samp_freq, sil_weighting, speaker, utt):
     need_endpoint_finalize = False
     chunks_decoded += 1
+
+    # Let the feature pipeline accept the wavform, take block (numpy array) and convert into Kaldi Vector.
+    # This is blocking and Kaldi computes all features updates necessary for the input chunk.
     feat_pipeline.accept_waveform(samp_freq, Vector(block))
+
+    # If this is the last chunk of an utterance, inform feature the pipeline to flush all buffers and finialize all features
     if last_chunk:
         feat_pipeline.input_finished()
     if sil_weighting.active():
         sil_weighting.compute_current_traceback(asr.decoder)
+
+        # inform ivector feature computation about current silence weighting
         feat_pipeline.ivector_feature().update_frame_weights(
             sil_weighting.get_delta_weights(
                 feat_pipeline.num_frames_ready()))
+
+    # This is where we inform Kaldi to advance the decoding pipeline by one step until the input chunk is completely processed.
     asr.advance_decoding()
     num_frames_decoded = asr.decoder.num_frames_decoded()
+
+    # If the endpointing did not indicate that we are in the last chunk:
     if not last_chunk:
+        # Check if we should set an endpoint for the next chunk
         if asr.endpoint_detected():
             if num_frames_decoded > 0:
                 need_endpoint_finalize = True
             #    prev_num_frames_decoded = 0
+        # If we do not have decteted an endpoint, check if a new full frame (actually a block of frames) has been decoded and something changed:
         elif num_frames_decoded > prev_num_frames_decoded:
-            #
+            # Get the partial output from the decoder (best path)
             out = asr.get_partial_output()
+
+            # Debug output (partial utterance) 
             print(key + "-utt%d-part%d" % (utt, part),
                   out["text"], flush=True)
+            # Now send the partial Utterance to the frontend (that then displays it to the user)
             if asr_client is not None:
                 asr_client.partialUtterance(utterance=out["text"], key=key + "-utt%d-part%d" % (utt, part), speaker=speaker)
             part += 1
     return need_endpoint_finalize, num_frames_decoded, part, utt
 
-
+# Initialize all needed Kaldi object for online feature computation (feat_pipeline) and online decoding (asr object)
 def initNnetFeatPipeline(adaptation_state, asr, decodable_opts, feat_info):
     feat_pipeline = OnlineNnetFeaturePipeline(feat_info)
     feat_pipeline.set_adaptation_state(adaptation_state)
@@ -566,20 +595,27 @@ def initNnetFeatPipeline(adaptation_state, asr, decodable_opts, feat_info):
         decodable_opts.frame_subsampling_factor)
     return feat_pipeline, sil_weighting
 
-
+# This finalizes an utterance and computes confidences.
+# We only compute the confidences (with MBR) on the finalized utterance, not on the partial ones.
 def finalize_decode(asr, asr_client, key, part, speaker, utt):
+    # Tell Kaldi to finalize decoding
     asr.finalize_decoding()
+    # Get final best path and lattice (out is a dict object with out["text"] = best path and out["lattice"] = Kaldi lattice object)
     out = asr.get_output()
+    # Use the lattice to compute MBR confidences
     mbr = MinimumBayesRisk(out["lattice"])
+    # confd is a vector with a confidence for each word of the best path
     confd = mbr.get_one_best_confidences()
     print(confd)
     print(key + "-utt%d-final" % utt, out["text"], flush=True)
+
+    # Now send the final utterance to the frontend (this will also indicate that this is a final utterance and the front displays it differently)
     if asr_client is not None:
         asr_client.completeUtterance(utterance=out["text"], key=key + "-utt%d-part%d" % (utt, part), confidences=confd, speaker=speaker)
 
     return out, confd
 
-
+# Reinitialize an already initialized Kaldi pipeline, reset the adaptation state
 def reinitialize_asr(adaptation_state, asr, feat_info, feat_pipeline):
     feat_pipeline.get_adaptation_state(adaptation_state)
     feat_pipeline = OnlineNnetFeaturePipeline(feat_info)
