@@ -1,0 +1,121 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>Minimalistic Recording Test</title>
+    <script src="https://www.WebRTC-Experiment.com/RecordRTC.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js" integrity="sha256-yr4fRk/GU1ehYJPAs8P4JlTgu0Hdsp4ZKrx8bDEDC3I=" crossorigin="anonymous"></script>
+</head>
+<body>
+    <h1>Minimalistic Recorder</h1>
+    <p>Async mode is: <b>{{ async_mode }}</b></p>
+    <div id="buttons">
+      <button class="record">Record</button>
+      <button class="pause">Pause</button>
+      <button class="resume">Resume</button>
+      <button class="stop">Stop</button>
+    </div>
+    <h2>Receive:</h2>
+    <div id="log"></div>
+</body>
+<script type="text/javascript" charset="utf-8">
+  // Use a "/test" namespace.
+  namespace = '/test';
+
+  // Connect to the Socket.IO server. The connection URL has the following format, relative to the current page: http[s]://<domain>:<port>[/<namespace>]
+  let socket = io(namespace);
+
+  // Event handler for new connections.
+  socket.on('connect', function() {
+    console.log("connected!")
+  });
+
+  let record = document.querySelector('.record');
+  let stop = document.querySelector('.stop');
+  let pause = document.querySelector('.pause');
+  let resume = document.querySelector('.resume');
+  record.disabled = false;
+  stop.disabled = true;
+  pause.disabled = true;
+  resume.disabled = true;
+
+  navigator.mediaDevices.getUserMedia({
+    video: false,
+    audio: true
+  }).then(async function(stream) {
+    let recorder = RecordRTC(stream, {
+      type: 'audio',
+      mimeType: 'audio/wav',
+      recorderType: StereoAudioRecorder,
+      disableLogs: true, // disable logs
+      timeSlice: 1000, // get intervals based blobs, value in milliseconds
+      ondataavailable: function(blob) { // requires timeSlice above returns blob via callback function
+        console.log("BLOB!");
+        blobToBase64(blob, function(dataURL, base64) {
+          socket.emit('data_available', {blob: blob, base64: base64, mime: "wav"});
+        });
+      },
+      audioBitsPerSecond: 128000,
+      //sampleRate: 96000, // used by StereoAudioRecorder the range 22050 to 96000
+      desiredSampRate: 16000, // used by StereoAudioRecorder let us force 16khz recording
+      bufferSize: 1024, // used by StereoAudioRecorder Legal values are (256, 512, 1024, 2048, 4096, 8192, 16384).
+      numberOfAudioChannels: 1, // used by StereoAudioRecorder 1 or 2
+    });
+
+    record.onclick = function() {
+      recorder.startRecording();
+      socket.emit('recording_started');
+      record.style.background = "red";
+      record.disabled = true;
+      stop.disabled = false;
+      pause.disabled = false;
+      resume.disabled = true;
+    };
+
+    stop.onclick = function() {
+      recorder.stopRecording(function() {
+        console.log("Stopped recording :)");
+        let blob = recorder.getBlob();
+        blobToBase64(blob, function(dataURL, base64) {
+          let au = new Audio(dataURL);
+          au.controls = true;
+          document.body.appendChild(au);
+          socket.emit('recording_stopped', {blob: blob, base64: base64, mime: "wav"});
+        });
+      });
+      record.style.background = "";
+      record.style.color = "";
+      record.disabled = false;
+      stop.disabled = true;
+      pause.disabled = true;
+      resume.disabled = true;
+    };
+
+    pause.onclick = function() {
+      recorder.pauseRecording();
+      record.disabled = true;
+      stop.disabled = true;
+      pause.disabled = true;
+      resume.disabled = false;
+    };
+
+    resume.onclick = function () {
+      recorder.resumeRecording();
+      record.disabled = true;
+      stop.disabled = false;
+      pause.disabled = false;
+      resume.disabled = true;
+    }
+
+  });
+
+  let blobToBase64 = function(blob, callback) {
+    let reader = new FileReader();
+    reader.onload = function() {
+      let dataURL = reader.result;
+      let base64 = dataURL.split(',')[1];
+      callback(dataURL, base64);
+    };
+    reader.readAsDataURL(blob);
+  };
+</script>
+</html>

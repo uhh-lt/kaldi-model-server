@@ -1,0 +1,34 @@
+######
+##
+# 1) start: docker-compose -f docker-compose-momsuite-asr.yml up -d
+# 2) attach: docker attach ...
+# 3) detach: detach with <CTRL-p> <CTRL-q>
+# 4) stop: docker-compose down
+# VISIT localhost:8080/
+##
+######
+version: '2.3'
+
+networks:
+  anet:
+
+services:
+
+  # BEGIN: kaldi-model-server
+  kamose:
+    image: uhhlt/kaldi-model-server:latest
+    container_name: kamose
+    volumes:
+      - ${PWD}/development:/projects/kaldi-model-server
+      - ${PWD}/models:/projects/kaldi-model-server/models
+    ports:
+      - 5000:5000
+    networks:
+      - anet
+    working_dir: /projects/kaldi-model-server/
+    entrypoint: bash
+    stdin_open: true
+    tty: true
+    devices:
+      - /dev/snd:/dev/snd
+  # END: kaldi-model-server
