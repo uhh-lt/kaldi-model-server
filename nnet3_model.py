@@ -57,10 +57,10 @@ import argparse
 import scipy.io.wavfile as wavefile
 
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
-import Queue
 
 red = redis.StrictRedis()
 decode_control_channel = 'asr_control'
+audio_data_channel = 'asr_audio'
 
 #Do most of the message passing with redis, now standard version
 class ASRRedisClient():
@@ -315,11 +315,15 @@ def print_devices(paudio):
 # Realtime decoding loop, uses blocking calls and interfaces a microphone directly (with pyaudio)
 def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, input_microphone_id, channels=1,
                                            samp_freq=16000, record_samplerate=16000, chunk_size=1024, wait_for_start_command=False, record_message_history=False, compute_confidences=True, asr_client=None, speaker_str="Speaker",
-                                           resample_algorithm="sinc_best", save_debug_wav=False, use_threads=False, minimum_num_frames_decoded_per_speaker=5, mic_vol_cutoff=0.5):
+                                           resample_algorithm="sinc_best", save_debug_wav=False, use_threads=False, minimum_num_frames_decoded_per_speaker=5, mic_vol_cutoff=0.5, use_local_mic=True):
     
     # Subscribe to command and control redis channel
     p = red.pubsub()
     p.subscribe(decode_control_channel)
+
+    if not use_local_mic:
+        pa = red.pubsub()
+        pa.subscribe(audio_data_channel)
 
     # Figure out if we need to resample (Todo: channles does not seem to work)
     need_resample = False
@@ -346,11 +350,12 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
     blocks = []
     rawblocks = []
 
-    # Open microphone channel 
-    print("Open microphone stream with id" + str(input_microphone_id) + "...")
-    stream = paudio.open(format=pyaudio.paInt16, channels=channels, rate=record_samplerate, input=True,
-                         frames_per_buffer=chunk_size, input_device_index=input_microphone_id)
-    print("Done!")
+    if use_local_mic:
+        # Open microphone channel 
+        print("Open microphone stream with id" + str(input_microphone_id) + "...")
+        stream = paudio.open(format=pyaudio.paInt16, channels=channels, rate=record_samplerate, input=True,
+                            frames_per_buffer=chunk_size, input_device_index=input_microphone_id)
+        print("Done!")
 
     do_decode = not wait_for_start_command
     need_finalize = False
@@ -368,7 +373,7 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
             # Check if there is a message from the redis server first (non-blocking!), if there is no new message msh is simply None.
             msg = p.get_message()
 
-            # We check of there are externally send control commands
+            # We check if there are externally send control commands
             if msg is not None:
                 print('msg:', msg)
                 if msg['data'] == b"start":
@@ -394,10 +399,20 @@ def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudi
                 elif msg['data'] == b"reset_timer":
                     print('Reset time command received!')
                     asr_client.resetTimer()
-
-            # We always consume from the microphone stream, even if we do not decode
-            block_raw = stream.read(chunk_size, exception_on_overflow=False)
-            npblock = np.frombuffer(block_raw, dtype=np.int16)
+            
+            if use_local_mic:
+                # We always consume from the microphone stream, even if we do not decode
+                block_raw = stream.read(chunk_size, exception_on_overflow=False)
+                npblock = np.frombuffer(block_raw, dtype=np.int16)
+            else:
+                block_audio_redis_msg = next(pa.listen())
+                if block_audio_redis_msg['type'] == "subscribe" and block_audio_redis_msg["data"] == 1:
+                    print('audio msg:', block_audio_redis_msg)
+                    print("Successfully connected to redis audio stream!")
+                    continue
+                else:
+                    npblock = np.frombuffer(block_audio_redis_msg['data'], dtype=np.int16)
+                    print("audio data: ", npblock)
 
             # Resample the block if necessary, e.g. 48kHz -> 16kHz
             if need_resample:
@@ -634,6 +649,9 @@ if __name__ == '__main__':
     parser.add_argument('-l', '--list-audio-interfaces', dest='list_audio_interfaces', help='List all available audio interfaces on this system', action='store_true', default=False)
 
     parser.add_argument('-m', '--mic-id', dest='micid', help='Microphone ID, if not set to -1, do online decoding directly from the microphone.', type=int, default='-1')
+
+    parser.add_argument('-e', '--enable-server-mic', dest='enable_server_mic', help='If -e is set, use redis audio data channel instead of a local microphone', action='store_true', default=False)
+
     parser.add_argument('-c', '--channels', dest='channels', help='Number of channels to record from the microphone, ', type=int, default=1)
 
     parser.add_argument('-wait', '--wait-for-start-command', dest='wait_for_start_command', help='Do not start decoding directly, wait for a start command from the redis control channel.',
@@ -697,4 +715,4 @@ if __name__ == '__main__':
                                                    chunk_size=args.chunk_size, wait_for_start_command=args.wait_for_start_command,
                                                    record_message_history=args.record_message_history, channels=args.channels,
                                                    resample_algorithm=args.resample_algorithm, save_debug_wav=args.save_debug_wav, use_threads=args.use_threads,
-                                                   minimum_num_frames_decoded_per_speaker=args.minimum_num_frames_decoded_per_speaker)
+                                                   minimum_num_frames_decoded_per_speaker=args.minimum_num_frames_decoded_per_speaker, use_local_mic=not args.enable_server_mic)
