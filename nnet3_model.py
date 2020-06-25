@@ -59,8 +59,6 @@ import scipy.io.wavfile as wavefile
 from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 
 red = redis.StrictRedis()
-decode_control_channel = 'asr_control'
-audio_data_channel = 'asr_audio'
 
 #Do most of the message passing with redis, now standard version
 class ASRRedisClient():
@@ -80,7 +78,7 @@ class ASRRedisClient():
                              'import redis\n\n' \
                              'red = redis.StrictRedis()\n' \
                              'time_factor = 1.0\n' \
-                             'asr_channel = "asr"\n\n'
+                             'asr_channel = "%s"\n\n' % channel
 
     def publish(self, data):
         json_dumps_data = json.dumps(data)
@@ -315,7 +313,8 @@ def print_devices(paudio):
 # Realtime decoding loop, uses blocking calls and interfaces a microphone directly (with pyaudio)
 def decode_chunked_partial_endpointing_mic(asr, feat_info, decodable_opts, paudio, input_microphone_id, channels=1,
                                            samp_freq=16000, record_samplerate=16000, chunk_size=1024, wait_for_start_command=False, record_message_history=False, compute_confidences=True, asr_client=None, speaker_str="Speaker",
-                                           resample_algorithm="sinc_best", save_debug_wav=False, use_threads=False, minimum_num_frames_decoded_per_speaker=5, mic_vol_cutoff=0.5, use_local_mic=True):
+                                           resample_algorithm="sinc_best", save_debug_wav=False, use_threads=False, minimum_num_frames_decoded_per_speaker=5, mic_vol_cutoff=0.5, use_local_mic=True, decode_control_channel='asr_control',
+                                           audio_data_channel='asr_audio'):
     
     # Subscribe to command and control redis channel
     p = red.pubsub()
@@ -668,6 +667,10 @@ if __name__ == '__main__':
     parser.add_argument('-fpc', '--frames_per_chunk', dest='frames_per_chunk', help='Frames per (decoding) chunk. This will also have an effect on latency.', type=int, default=30)
 
     parser.add_argument('-red', '--redis-channel', dest='redis_channel', help='Name of the channel (for redis-server)', type=str, default='asr')
+
+    parser.add_argument('--redis-audio', dest='redis_audio_channel', help='Name of the channel (for redis-server)', type=str, default='asr_audio')
+    parser.add_argument('--redis-control', dest='redis_control_channel', help='Name of the channel (for redis-server)', type=str, default='asr_control')
+
     parser.add_argument('-y', '--yaml-config', dest='yaml_config', help='Path to the yaml model config', type=str, default='models/kaldi_tuda_de_nnet3_chain2.yaml')
     parser.add_argument('-o', '--online-config', dest='online_config', help='Path to the Kaldi online config. If not available, will try to read the parameters from the yaml'
                                                                             ' file and convert it to the Kaldi online config format (See online_config_options.info.txt for details)',
@@ -678,7 +681,7 @@ if __name__ == '__main__':
 
     parser.add_argument('-a', '--resample_algorithm', dest='resample_algorithm', help="One of the following: linear, sinc_best, sinc_fastest,"
                                                                                       " sinc_medium, zero_order_hold (default: sinc_best)",
-                                                                                      type=str, default="sinc_best")
+                                                                                      type=str, default="sinc_fastest")
 
     parser.add_argument('-t', '--use-threads', dest='use_threads', help='Use a thread worker for realtime decoding',
                         action='store_true', default=False)
@@ -715,4 +718,5 @@ if __name__ == '__main__':
                                                    chunk_size=args.chunk_size, wait_for_start_command=args.wait_for_start_command,
                                                    record_message_history=args.record_message_history, channels=args.channels,
                                                    resample_algorithm=args.resample_algorithm, save_debug_wav=args.save_debug_wav, use_threads=args.use_threads,
-                                                   minimum_num_frames_decoded_per_speaker=args.minimum_num_frames_decoded_per_speaker, use_local_mic=not args.enable_server_mic)
+                                                   minimum_num_frames_decoded_per_speaker=args.minimum_num_frames_decoded_per_speaker, use_local_mic=not args.enable_server_mic,
+                                                   decode_control_channel=args.redis_control_channel, audio_data_channel=args.redis_audio_channel)
