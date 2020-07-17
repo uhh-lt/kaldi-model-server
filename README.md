@@ -64,7 +64,7 @@ source pykaldi_env/bin/activate
 Install Python3 pip dependencies:
 
 ```bash
-pip3 install numpy pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4 portaudio samplerate scipy
+pip3 install numpy pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4 samplerate scipy
 ```
 
 Compile and install Protobuf, CLIF and KALDI dependencies (compiliation can take some time unfortunatly):
