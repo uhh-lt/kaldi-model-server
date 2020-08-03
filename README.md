@@ -29,7 +29,7 @@ To install dependencies for PyKaldi and kaldi-model-server on Ubuntu do:
 
 ```bash
 # Ubuntu Linux
-sudo apt-get install portaudio19-dev redis-server autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev virtualenv
+sudo apt-get install portaudio19-dev redis-server autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev virtualenv python3-dev
 ```
 
 On a Mac:
