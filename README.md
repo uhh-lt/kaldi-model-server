@@ -25,11 +25,13 @@ You can browse to http://127.0.0.1:5000/ and should see words appear. Word confi
 
 # Installation
 
+Pykaldi doesn't work yet on Ubuntu 20.04 or later.
+
 To install dependencies for PyKaldi and kaldi-model-server on Ubuntu do:
 
 ```bash
 # Ubuntu Linux
-sudo apt-get install portaudio19-dev redis-server autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev virtualenv python3-dev
+sudo apt-get install portaudio19-dev redis-server autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev virtualenv python3-dev libsamplerate0
 ```
 
 On a Mac:
@@ -88,6 +90,12 @@ You can test the install with:
 
 ```bash
 ~/projects/pykaldi$ python3 setup.py test
+```
+You need to download the model:
+
+```bash
+cd ~/projects/kaldi-model-server
+./download_example_models.sh
 ```
 
 Whenever you want to run nnet3_model.py you have to run source ./bin/activate once per Bash session:
