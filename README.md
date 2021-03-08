@@ -57,8 +57,8 @@ git clone https://github.com/uhh-lt/kaldi-model-server
 
 cd kaldi-model-server
 
-virtualenv -p python3 .
-source ./bin/activate
+virtualenv -p python3 pykaldi_env
+source ./pykaldi_env/bin/activate
 ```
 
 Install Python3 pip dependencies:
@@ -72,9 +72,9 @@ Compile and install Protobuf, CLIF and KALDI dependencies (compiliation can take
 ```bash
 cd  ~/projects/pykaldi/tools/
 ./check_dependencies.sh  # checks if system dependencies are installed
-./install_protobuf.sh ~/projects/kaldi-model-server/bin/python3  # installs both the Protobuf C++ library and the Python package
-./install_clif.sh ~/projects/kaldi-model-server/bin/python3  # installs both the CLIF C++ library and the Python package
-./install_kaldi.sh ~/projects/kaldi-model-server/bin/python3 # installs the Kaldi C++ library
+./install_protobuf.sh ~/projects/kaldi-model-server/pykaldi_env/bin/python3  # installs both the Protobuf C++ library and the Python package
+./install_clif.sh ~/projects/kaldi-model-server/pykaldi_env/bin/python3  # installs both the CLIF C++ library and the Python package
+./install_kaldi.sh ~/projects/kaldi-model-server/pykaldi_env/bin/python3 # installs the Kaldi C++ library
 ```
 
 Now install PyKaldi:
