@@ -1,69 +1,40 @@
-###
-#
-# Kaldi Model Server
-#
-# NOTE: you might need to build the image with adjusted memory settings, e.g.:
-#
-#   $> docker build -f Dockerfile --tag uhh-lt/kaldi-model-server:latest --memory 6g .
-#
-###
-FROM ubuntu:19.10
+# docker build -t uhhlt/kamose:latest .
 
-ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+# docker run -p 5000:5000 --name kamose --rm --device /dev/snd:/dev/snd -ti -v ${PWD}/models:/projects/kaldi-model-server/models --entrypoint bash uhhlt/kamose:latest
+# sh entrypoint_event_server.sh
 
-RUN DEBIAN_FRONTEND=noninteractive apt-get update --fix-missing \
-  && apt-get install -y --no-install-recommends apt-utils \
-  && apt-get install -y wget bzip2 ca-certificates curl git \
-  && apt-get install -y redis-server portaudio19-dev libportaudio2 redis-server autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev sox z3 libz3-dev llvm ocaml ocaml-libs libctypes-ocaml-dev libcothreads-ocaml-dev clang gcc g++ gcc-7 g++-7 libsamplerate0 alsa-base alsa-utils \
-  && apt-get autoremove \
-  && apt-get clean
+# docker exec -ti kamose bash
+# asr -m 11 -c 1 -t -mf 5 -r 16000 -cs 8192 -bs 2 -a linear
 
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-4.5.11-Linux-x86_64.sh -O ~/miniconda.sh && \
-    /bin/bash ~/miniconda.sh -b -p /opt/conda && \
-    rm ~/miniconda.sh && \
-    /opt/conda/bin/conda clean -tipsy && \
-    ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
-    echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.bashrc && \
-    echo "conda activate base" >> ~/.bashrc
+FROM ubuntu:18.04
 
-ENV PATH=/opt/conda/bin:$PATH
+RUN apt-get update \
+ && apt-get install -y portaudio19-dev redis-server autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev virtualenv python3-dev libsamplerate0 sox python3.8 python2.7 python3.8-dev software-properties-common
 
-RUN conda update -y -n base -c defaults conda
-
-RUN conda install -y python=3.6
-
-RUN pip install samplerate flask_cors bs4 doxypy numpy pyparsing ninja redis pyyaml flask pyaudio scipy
-
-RUN mkdir -p /projects
+RUN mkdir projects
 
 WORKDIR /projects
 
-ARG PYKALDI_COMMIT=249963c2cb57d92c0027bb958280dcf8e408462a
-
-RUN git clone https://github.com/pykaldi/pykaldi && cd pykaldi && git checkout $PYKALDI_COMMIT && cd ..
-
-RUN cd /projects/pykaldi/tools/ \
-  && ./check_dependencies.sh \
-  && ./install_protobuf.sh
-
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 60 --slave /usr/bin/g++ g++ /usr/bin/g++-7
-
-RUN cd /projects/pykaldi/tools/ \
-  && ./install_clif.sh
-
-RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 70 --slave /usr/bin/g++ g++ /usr/bin/g++-9
-
-RUN cd /projects/pykaldi/tools/ \
-  && ./install_kaldi.sh
-
-RUN cd /projects/pykaldi/ \
-  && MAKE_NUM_JOBS=2 python setup.py install
-
-ARG KALDIMODELSERVER_COMMIT=7ada422a77d924d8f39dad6945406fd31d82bfd2
-
-RUN git clone https://github.com/uhh-lt/kaldi-model-server && cd kaldi-model-server && git checkout $KALDIMODELSERVER_COMMIT && cd ..
+RUN git clone https://github.com/uhh-lt/kaldi-model-server.git
 
 WORKDIR /projects/kaldi-model-server
+
+RUN wget https://ltdata1.informatik.uni-hamburg.de/pykaldi/pykaldi-0.1.2-cp38-cp38-linux_x86_64.whl \
+ && wget https://ltdata1.informatik.uni-hamburg.de/pykaldi/install_kaldi.sh \
+ && wget https://ltdata1.informatik.uni-hamburg.de/pykaldi/install_kaldi_intel.sh \
+ && wget https://ltdata1.informatik.uni-hamburg.de/pykaldi/path.sh \
+ && wget https://ltdata1.informatik.uni-hamburg.de/pykaldi/install_mkl.sh \
+ && chmod guo+x *.sh
+
+RUN virtualenv -p /usr/bin/python3.8 pykaldi_env \
+ && . pykaldi_env/bin/activate \
+ && pip3 install pykaldi-0.1.2-cp38-cp38-linux_x86_64.whl pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4 samplerate scipy
+
+RUN ./install_mkl.sh \
+ && ./install_kaldi_intel.sh
+
+RUN rm pykaldi-0.1.2-cp38-cp38-linux_x86_64.whl \
+ && find . -name "*.o" -type f -delete
 
 VOLUME ["/projects/kaldi-model-server/models"]
 
@@ -71,27 +42,26 @@ RUN echo "#!/bin/bash \n\
   set -e \n\
   cd /projects/kaldi-model-server \n\
   # download example model if it doesn't exist
-  [ ! -d /projects/kaldi-model-server/models/de_400k_nnet3chain_tdnn1f_2048_sp_bi ] && ( \
+  [ ! -d /projects/kaldi-model-server/models/de_683k_nnet3chain_tdnn1f_2048_sp_bi_smaller_fst ] && ( \
     echo 'Example model does not exist!' \
       && sh download_example_models.sh \
-      && sed -i 's/=de_400k_nnet3chain_tdnn1f_2048_sp_bi\//=models\/de_400k_nnet3chain_tdnn1f_2048_sp_bi\//g' models/de_400k_nnet3chain_tdnn1f_2048_sp_bi/ivector_extractor/ivector_extractor.conf \
     ) || echo 'Example model already exists.' \n\
+  cd /projects/kaldi-model-server/ \n\
   # start redis \n\
-  /etc/init.d/redis-server start \n\
+  redis-server --daemonize yes \n\
   # run event server in background \n\
+  . pykaldi_env/bin/activate \n\
   python event_server.py \n\
 " > entrypoint_event_server.sh
 
 RUN echo "#!/bin/bash \n\
   set -e \n\
   cd /projects/kaldi-model-server \n\
+  . pykaldi_env/bin/activate \n\
+  . path.sh \n\
   python nnet3_model.py \$* \n\
 " > /usr/local/bin/asr && chmod a+rx /usr/local/bin/asr
 
 EXPOSE 5000
 
 CMD ["sh", "/projects/kaldi-model-server/entrypoint_event_server.sh"]
-
-###############
-#
-###############
