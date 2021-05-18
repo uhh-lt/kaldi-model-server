@@ -9,7 +9,7 @@
 FROM ubuntu:18.04
 
 RUN apt-get update \
- && apt-get install -y portaudio19-dev redis-server autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev virtualenv python3-dev libsamplerate0 sox python3.8 python2.7 python3.8-dev software-properties-common
+ && apt-get install -y portaudio19-dev redis-server autoconf automake cmake curl g++ git graphviz libatlas3-base libtool make pkg-config subversion unzip wget zlib1g-dev virtualenv python3-dev libsamplerate0 sox python3.8 python2.7 python3.8-dev software-properties-common gfortran
 
 RUN mkdir projects
 
