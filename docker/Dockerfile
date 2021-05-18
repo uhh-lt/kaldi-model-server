@@ -19,8 +19,8 @@ RUN git clone https://github.com/uhh-lt/kaldi-model-server.git
 
 WORKDIR /projects/kaldi-model-server
 
-RUN wget https://ltdata1.informatik.uni-hamburg.de/pykaldi/pykaldi-0.1.2-cp38-cp38-linux_x86_64.whl \
- && wget https://ltdata1.informatik.uni-hamburg.de/pykaldi/install_kaldi.sh \
+RUN wget https://ltdata1.informatik.uni-hamburg.de/pykaldi/pykaldi-0.2.0-cp38-cp38-linux_x86_64.whl \
+ && wget https://ltdata1.informatik.uni-hamburg.de/pykaldi/install_kaldi_for_pykaldi_0.2.0.sh \
  && wget https://ltdata1.informatik.uni-hamburg.de/pykaldi/install_kaldi_intel.sh \
  && wget https://ltdata1.informatik.uni-hamburg.de/pykaldi/path.sh \
  && wget https://ltdata1.informatik.uni-hamburg.de/pykaldi/install_mkl.sh \
@@ -28,12 +28,12 @@ RUN wget https://ltdata1.informatik.uni-hamburg.de/pykaldi/pykaldi-0.1.2-cp38-cp
 
 RUN virtualenv -p /usr/bin/python3.8 pykaldi_env \
  && . pykaldi_env/bin/activate \
- && pip3 install pykaldi-0.1.2-cp38-cp38-linux_x86_64.whl pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4 samplerate scipy
+ && pip3 install pykaldi-0.2.0-cp38-cp38-linux_x86_64.whl pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4 samplerate scipy
 
 RUN ./install_mkl.sh \
- && ./install_kaldi_intel.sh
+ && ./install_kaldi_for_pykaldi_0.2.0.sh
 
-RUN rm pykaldi-0.1.2-cp38-cp38-linux_x86_64.whl \
+RUN rm pykaldi-0.2.0-cp38-cp38-linux_x86_64.whl \
  && find . -name "*.o" -type f -delete
 
 VOLUME ["/projects/kaldi-model-server/models"]
@@ -42,7 +42,7 @@ RUN echo "#!/bin/bash \n\
   set -e \n\
   cd /projects/kaldi-model-server \n\
   # download example model if it doesn't exist
-  [ ! -d /projects/kaldi-model-server/models/de_683k_nnet3chain_tdnn1f_2048_sp_bi_smaller_fst ] && ( \
+  [ ! -d /projects/kaldi-model-server/models/en_160k_nnet3chain_tdnn1f_2048_sp_bi ] && ( \
     echo 'Example model does not exist!' \
       && sh download_example_models.sh \
     ) || echo 'Example model already exists.' \n\
