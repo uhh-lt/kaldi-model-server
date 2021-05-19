@@ -46,6 +46,8 @@ docker exec kamose asr -l
 
 docker exec kamose asr -m 6 -c 1 -t -mf 5 -r 48000 -cs 8192 -bs 5 -w --wait
 
-docker exec kamose asr -m 7 -c 1 -t -mf 5 -r 48000 --wait --yaml-config models/kaldi_tuda_de_nnet3_chain2.yaml
+docker exec kamose asr -m 7 -c 1 -t -mf 5 -r 48000 --wait --yaml-config models/kaldi_tuda_de_nnet3_chain2.yaml --online-config models/kaldi_tuda_de_nnet3_chain2.online.conf
+
+docker exec kamose asr -m 7 -c 1 -t -mf 5 -r 48000 --wait --yaml-config models/en_160k_nnet3chain_tdnn1f_2048_sp_bi.yaml --online-config models/en_160k_nnet3chain_tdnn1f_2048_sp_bi.online.conf
 
 ```
