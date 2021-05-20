@@ -1,0 +1,27 @@
+# You have to download TEDLIUM "online nnet2" models in order to use this sample
+# Run download-tedlium-nnet2.sh in 'test/models' to download them.
+use-nnet2: True
+decoder:
+    # All the properties nested here correspond to the kaldinnet2onlinedecoder GStreamer plugin properties.
+    # Use gst-inspect-1.0 ./libgstkaldionline2.so kaldinnet2onlinedecoder to discover the available properties
+    use-threaded-decoder:  true
+    model : en_160k_nnet3chain_tdnn1f_2048_sp_bi/final.mdl
+    word-syms : en_160k_nnet3chain_tdnn1f_2048_sp_bi/words.txt
+    fst : en_160k_nnet3chain_tdnn1f_2048_sp_bi/HCLG.fst
+    mfcc-config : en_160k_nnet3chain_tdnn1f_2048_sp_bi/conf/mfcc_hires.conf
+    ivector-extraction-config : en_160k_nnet3chain_tdnn1f_2048_sp_bi/ivector_extractor/ivector_extractor.conf
+    max-active: 10000
+    beam: 13.0
+    lattice-beam: 6.0
+    acoustic-scale: 0.083
+    do-endpointing : true
+    endpoint-silence-phones : "1:2:3:4:5:6:7:8:9:10"
+    traceback-period-in-secs: 0.25
+    chunk-length-in-secs: 0.25
+    num-nbest: 1
+    #Additional functionality that you can play with:
+    #lm-fst:  models/en_160k_nnet3chain_tdnn1f_2048_sp_bi/G.fst
+    #big-lm-const-arpa: models/en_160k_nnet3chain_tdnn1f_2048_sp_bi/G.carpa
+    #phone-syms: models/en_160k_nnet3chain_tdnn1f_2048_sp_bi/phones.txt
+    #word-boundary-file: models/en_160k_nnet3chain_tdnn1f_2048_sp_bi/word_boundary.int
+    #do-phone-alignment: true
