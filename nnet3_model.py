@@ -153,7 +153,7 @@ def load_model(config_file, online_config, models_path='models/', beam_size=10, 
     po = ParseOptions("")
     feat_opts.register(po)
     endpoint_opts.register(po)
-    po.read_config_file(models_path + "kaldi_tuda_de_nnet3_chain2.online.conf")
+    po.read_config_file(online_config)
     feat_info = OnlineNnetFeaturePipelineInfo.from_config(feat_opts)
 
     # Construct recognizer
