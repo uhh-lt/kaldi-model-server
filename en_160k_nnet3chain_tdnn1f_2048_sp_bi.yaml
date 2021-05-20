@@ -8,12 +8,13 @@ decoder:
     model : en_160k_nnet3chain_tdnn1f_2048_sp_bi/final.mdl
     word-syms : en_160k_nnet3chain_tdnn1f_2048_sp_bi/words.txt
     fst : en_160k_nnet3chain_tdnn1f_2048_sp_bi/HCLG.fst
-    mfcc-config : en_160k_nnet3chain_tdnn1f_2048_sp_bi/conf/mfcc_hires.conf
+    mfcc-config : en_160k_nnet3chain_tdnn1f_2048_sp_bi/conf/mfcc.conf
     ivector-extraction-config : en_160k_nnet3chain_tdnn1f_2048_sp_bi/ivector_extractor/ivector_extractor.conf
     max-active: 10000
     beam: 13.0
     lattice-beam: 6.0
-    acoustic-scale: 0.083
+    acoustic-scale: 1.0
+ #   acoustic-scale: 0.083
     do-endpointing : true
     endpoint-silence-phones : "1:2:3:4:5:6:7:8:9:10"
     traceback-period-in-secs: 0.25
