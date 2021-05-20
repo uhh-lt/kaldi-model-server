@@ -66,10 +66,9 @@ asr -m 10 -e -c 1 -t -mf 5 -r 16000 --yaml-config models/en_160k_nnet3chain_tdnn
 ```
 
 terminal2:
-- copy publish_wav.py into models directory so that kamose can access it
 - copy *.wav file into models directory so that kamose can access it
 - read wav and stream it via redis
 ```
 . pykaldi_env/bin/activate
-python3 publish_wav.py
+python3 publish_wav.py <audiofile>
 ```

@@ -6,7 +6,8 @@ import time
 
 red = redis.StrictRedis()
 
-signal, samplerate = sf.read('mbot-demo-tim-benjamin-steffen-16bit.wav')
+print(sys.argv)
+signal, samplerate = sf.read(sys.argv[1])
 
 signal = (signal * (2**15)).astype(np.int16)
 # signal = signal[:, 0]

@@ -74,5 +74,5 @@ services:
       - anet
 #    entrypoint: ["python", "app.py", "-l", "de"]
 #    set language with -l, supported languages are 'de', 'en' or 'both'
-    command: ["-l", "de"]
+    command: ["-l", "en"]
   # END: SPACY

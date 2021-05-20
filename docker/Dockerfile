@@ -28,7 +28,7 @@ RUN wget https://ltdata1.informatik.uni-hamburg.de/pykaldi/pykaldi-0.2.0-cp38-cp
 
 RUN virtualenv -p /usr/bin/python3.8 pykaldi_env \
  && . pykaldi_env/bin/activate \
- && pip3 install pykaldi-0.2.0-cp38-cp38-linux_x86_64.whl pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4 samplerate scipy
+ && pip3 install pykaldi-0.2.0-cp38-cp38-linux_x86_64.whl pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4 samplerate scipy soundfile
 
 RUN ./install_mkl.sh \
  && ./install_kaldi_for_pykaldi_0.2.0.sh
