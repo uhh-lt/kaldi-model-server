@@ -51,3 +51,25 @@ docker exec kamose asr -m 7 -c 1 -t -mf 5 -r 48000 --wait --yaml-config models/k
 docker exec kamose asr -m 7 -c 1 -t -mf 5 -r 48000 --wait --yaml-config models/en_160k_nnet3chain_tdnn1f_2048_sp_bi.yaml --online-config models/en_160k_nnet3chain_tdnn1f_2048_sp_bi.online.conf
 
 ```
+
+## Demo commands
+
+- open 2 terminals
+- connect with kamose
+```
+docker exec -ti kamose bash
+```
+
+terminal 1: start asr
+```
+asr -m 10 -e -c 1 -t -mf 5 -r 16000 --yaml-config models/en_160k_nnet3chain_tdnn1f_2048_sp_bi.yaml --online-config models/en_160k_nnet3chain_tdnn1f_2048_sp_bi.online.conf
+```
+
+terminal2:
+- copy publish_wav.py into models directory so that kamose can access it
+- copy *.wav file into models directory so that kamose can access it
+- read wav and stream it via redis
+```
+. pykaldi_env/bin/activate
+python3 publish_wav.py
+```
