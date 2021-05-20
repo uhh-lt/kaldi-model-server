@@ -149,7 +149,9 @@ def load_model(config_file, online_config, models_path='models/', beam_size=10, 
             online_config_file.write("--feature_type=mfcc\n")
             online_config_file.write("--ivector_extraction_config=" + models_path + decoder_yaml_opts['ivector-extraction-config'] + '\n')
             online_config_file.write("--endpoint.silence-phones=" + decoder_yaml_opts['endpoint-silence-phones'] + '\n')
-
+    else:
+        print("Loading online conf from:", online_config)
+            
     po = ParseOptions("")
     feat_opts.register(po)
     endpoint_opts.register(po)
