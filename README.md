@@ -4,14 +4,13 @@ Kaldi-model-server is a simple Kaldi model server for online decoding with TDNN 
 
 Kaldi-model-server works on Linux (preferably Ubuntu / Debian based) and Mac OS X. Because redis supports a [wide range of different programming languages](https://redis.io/clients), it can easily be used to interact with decoded speech output in realtime with your favourite programming language.
 
-For demonstration purposes we added an simple demo example application that uses a Python based event server with [Flask](https://palletsprojects.com/p/flask/) (event_server.py) to display the recognized words in a simple HTML5 app running in a browser window:
+For demonstration purposes we added an simple demo example application that uses a Python based event server with [Flask](https://palletsprojects.com/p/flask/) (event_server.py) to display the recognized words in a simple HTML5 app running in a browser window.
 
-example/ An example HTML5 application that visualizes decoded speech with confidence values
+See example/ -> An example HTML5 application that visualizes decoded speech with confidence values
 
-To start the demo run 
+To start the web demo run:
 
 ```bash
-sh download_example_models.sh  # this will download our Kaldi demo models for German and English ASR
 /etc/init.d/redis-server start
 python3 event_server.py
 ```
@@ -22,11 +21,11 @@ and then in a different window:
 python3 nnet3_model.py
 ```
 
-You can browse to http://127.0.0.1:5000/ and should see words appear. Word confidences are computed after an utterance is decoded and visualized with different levels of greyness.
+You can browse to http://127.0.0.1:5000/ and should see words appear as you speak into your microphone. Word confidences are computed after an utterance is decoded and visualized with different levels of greyness.
 
 # Installation
 
-Pykaldi doesn't work yet on Ubuntu 20.04 or later.
+~~Pykaldi doesn't work yet on Ubuntu 20.04 or later.~~ Check out our new and updated instruction to quickly install PyKaldi in: http://ltdata1.informatik.uni-hamburg.de/pykaldi/README.txt
 
 To install dependencies for PyKaldi and kaldi-model-server on Ubuntu do:
 
@@ -92,7 +91,7 @@ You can test the install with:
 ```bash
 ~/projects/pykaldi$ python3 setup.py test
 ```
-You can download our demo models for German and English ASR:
+You need to download the model:
 
 ```bash
 cd ~/projects/kaldi-model-server
