@@ -92,7 +92,7 @@ You can test the install with:
 ```bash
 ~/projects/pykaldi$ python3 setup.py test
 ```
-You need to download the model:
+You can download our demo models for German and English ASR:
 
 ```bash
 cd ~/projects/kaldi-model-server
