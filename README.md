@@ -11,6 +11,7 @@ example/ An example HTML5 application that visualizes decoded speech with confid
 To start the demo run 
 
 ```bash
+sh download_example_models.sh  # this will download our Kaldi demo models for German and English ASR
 /etc/init.d/redis-server start
 python3 event_server.py
 ```
