@@ -9,7 +9,7 @@ decoder:
     word-syms : en_160k_nnet3chain_tdnn1f_2048_sp_bi/words.txt
     fst : en_160k_nnet3chain_tdnn1f_2048_sp_bi/HCLG.fst
     mfcc-config : en_160k_nnet3chain_tdnn1f_2048_sp_bi/conf/mfcc.conf
-    ivector-extraction-config : en_160k_nnet3chain_tdnn1f_2048_sp_bi/ivector_extractor/ivector_extractor.conf
+    ivector-extraction-config : en_160k_nnet3chain_tdnn1f_2048_sp_bi/conf/ivector_extractor.conf
     max-active: 10000
     beam: 13.0
     lattice-beam: 6.0
