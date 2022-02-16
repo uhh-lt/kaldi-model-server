@@ -38,7 +38,9 @@ On a Mac:
 
 ```bash
 # Mac OS X, see https://brew.sh/
-brew upgrade automake cmake git graphviz libtool pkg-config wget
+brew install automake cmake git graphviz libtool pkg-config wget subversion gnu-sed portaudio openblas
+
+export LAPACK=/opt/homebrew/opt/openblas
 
 brew upgrade python3
 pip3 install virtualenv
@@ -46,7 +48,6 @@ pip3 install virtualenvwrapper
 
 brew install redis
 brew services start redis
-
 ```
 
 The easist way to install PyKaldi and kaldi-model-server is in a virtual environment (named pykaldi_env):
@@ -67,6 +68,16 @@ Install Python3 pip dependencies:
 
 ```bash
 pip3 install numpy pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4 samplerate scipy
+```
+
+Notes for mac: If you are getting a "portaudio.h not found" error when installing pyaudio, despite portaudio being installed through brew, then you need to tell pip where to look for the include with:
+```bash
+pip3 install --global-option='build_ext' --global-option="-I$(brew --prefix)/include" --global-option="-L$(brew --prefix)/lib" pyaudio
+```
+
+If scipy can't find a LAPACK library then you can set:
+```bash
+export LAPACK=/opt/homebrew/opt/openblas
 ```
 
 Compile and install Protobuf, CLIF and KALDI dependencies (compiliation can take some time unfortunatly):
