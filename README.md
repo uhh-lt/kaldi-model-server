@@ -38,7 +38,7 @@ On a Mac:
 
 ```bash
 # Mac OS X, see https://brew.sh/
-brew install automake cmake git graphviz libtool pkg-config wget subversion gnu-sed portaudio openblas
+brew install automake cmake git graphviz libtool pkg-config wget subversion gnu-sed portaudio openblas sox
 
 #newer scipy versions can't use apples accelerate for BLAS anymore, this tells pip/scipy where to look for openblas instead:
 export LAPACK=/opt/homebrew/opt/openblas
