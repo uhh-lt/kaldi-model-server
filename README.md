@@ -74,7 +74,7 @@ Install Python3 pip dependencies:
 pip3 install numpy pyparsing ninja redis pyyaml pyaudio flask flask_cors bs4 samplerate scipy
 ```
 
-Notes for mac: If you are getting a "portaudio.h not found" error when installing pyaudio, despite portaudio being installed through brew, then you need to tell pip where to look for the include with:
+Note for mac users: If you are getting a "portaudio.h not found" error when installing pyaudio, despite portaudio being installed through brew, then you need to tell pip where to look for the include with:
 ```bash
 pip3 install --global-option='build_ext' --global-option="-I$(brew --prefix)/include" --global-option="-L$(brew --prefix)/lib" pyaudio
 ```
@@ -94,7 +94,7 @@ cd  ~/projects/pykaldi/tools/
 ./install_kaldi.sh ~/projects/kaldi-model-server/pykaldi_env/bin/python3 # installs the Kaldi C++ library
 ```
 
-Note, if you are compiling this on Apple Silicion and ./install_kaldi.sh gets stuck right at the beginning compiling sctk, you might need to remove -march=native from tools/kaldi/tools/Makefile, e.g. by uncommeting it in this line like this:
+Note, if you are compiling Kaldi on Apple Silicion and ./install_kaldi.sh gets stuck right at the beginning compiling sctk, you might need to remove -march=native from tools/kaldi/tools/Makefile, e.g. by uncommeting it in this line like this:
 
 ```bash
 SCTK_CXFLAGS = -w #-march=native
