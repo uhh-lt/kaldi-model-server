@@ -94,6 +94,12 @@ cd  ~/projects/pykaldi/tools/
 ./install_kaldi.sh ~/projects/kaldi-model-server/pykaldi_env/bin/python3 # installs the Kaldi C++ library
 ```
 
+Note, if you are compiling this on Apple Silicion and ./install_kaldi.sh gets stuck right at the beginning compiling sctk, you might need to remove -march=native from tools/kaldi/tools/Makefile, e.g. by uncommeting it in this line like this:
+
+```bash
+SCTK_CXFLAGS = -w #-march=native in 
+```
+
 Now install PyKaldi:
 
 ```bash
