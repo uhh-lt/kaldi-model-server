@@ -40,7 +40,11 @@ On a Mac:
 # Mac OS X, see https://brew.sh/
 brew install automake cmake git graphviz libtool pkg-config wget subversion gnu-sed portaudio openblas
 
+#newer scipy versions can't use apples accelerate for BLAS anymore, this tells pip/scipy where to look for openblas instead:
 export LAPACK=/opt/homebrew/opt/openblas
+
+# This makes sed = gnu-sed
+PATH="/opt/homebrew/opt/gnu-sed/libexec/gnubin:$PATH"
 
 brew upgrade python3
 pip3 install virtualenv
