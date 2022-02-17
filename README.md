@@ -97,7 +97,7 @@ cd  ~/projects/pykaldi/tools/
 Note, if you are compiling this on Apple Silicion and ./install_kaldi.sh gets stuck right at the beginning compiling sctk, you might need to remove -march=native from tools/kaldi/tools/Makefile, e.g. by uncommeting it in this line like this:
 
 ```bash
-SCTK_CXFLAGS = -w #-march=native in 
+SCTK_CXFLAGS = -w #-march=native
 ```
 
 Now install PyKaldi:
